@@ -10,3 +10,10 @@ export class UsernameAlreadyTakenError extends Error {
     this.name = "UsernameAlreadyTakenError";
   }
 }
+
+export class InvalidCredentialsError extends Error {
+  constructor() {
+    super("Email or password is incorrect");
+    this.name = "InvalidCredentialsError";
+  }
+}
