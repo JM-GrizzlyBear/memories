@@ -12,6 +12,9 @@
     "dev": {
       "cache": false,
       "persistent": true
-    }
+    },
+    "db:new": { "cache": false },
+    "db:migrate": { "cache": false },
+    "db:rollback": { "cache": false }
   }
 }
