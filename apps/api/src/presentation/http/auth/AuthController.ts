@@ -5,7 +5,7 @@ import {
   EmailAlreadyTakenError,
   UsernameAlreadyTakenError,
 } from "../../../domain/user/errors.js";
-import { registerSchema } from "./registerSchema.js";
+import { registerSchema } from "./RegisterSchema.js";
 
 export class AuthController {
   constructor(private readonly registerUser: RegisterUser) {}

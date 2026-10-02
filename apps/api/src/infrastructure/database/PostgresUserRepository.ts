@@ -12,7 +12,7 @@ interface UserRow {
   password_hash: string;
   first_name: string;
   last_name: string;
-  birthday: Date;
+  birthday: string;
   profile_photo_url: string | null;
   created_at: Date;
   updated_at: Date;
@@ -26,7 +26,7 @@ function toUser(row: UserRow): User {
     passwordHash: row.password_hash,
     firstName: row.first_name,
     lastName: row.last_name,
-    birthday: row.birthday,
+    birthday: new Date(`${row.birthday}T00:00:00Z`),
     profilePhotoUrl: row.profile_photo_url,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
