@@ -1,6 +1,8 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { login, register } from "../../infrastructure/api/authApi";
+import { loginSchema } from "@memories/shared";
+import { z } from "zod";
+import { login } from "../../infrastructure/api/authApi";
 import { ApiError } from "../../infrastructure/api/http";
 import { AuthLayout } from "../components/layout/AuthLayout";
 import { Button } from "../components/ui/Button";
@@ -14,6 +16,23 @@ const initialForm = {
 
 type LoginForm = typeof initialForm;
 type FieldErrors = Partial<Record<keyof LoginForm, string>>;
+
+// Checks the form in the browser with the same rules as the API
+function validate(form: LoginForm): FieldErrors {
+  const errors: FieldErrors = {};
+
+  const result = loginSchema.safeParse(form);
+  if (!result.success) {
+    const fieldMessages = z.flattenError(result.error).fieldErrors;
+    for (const [field, messages] of Object.entries(fieldMessages)) {
+      if (messages?.[0]) {
+        errors[field as keyof LoginForm] = messages[0];
+      }
+    }
+  }
+
+  return errors;
+}
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -30,33 +49,18 @@ export function LoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     setFieldErrors({});
     setFormError(null);
 
-    // 2. Check the form in the browser first, collecting ALL errors at once
-    const errors: FieldErrors = {};
-
-    const labels: Record<keyof LoginForm, string> = {
-      usernameOrEmail: "Username or Email",
-      password: "Password",
-    };
-
-    // Every field is required
-    for (const field of Object.keys(form) as (keyof LoginForm)[]) {
-      if (!form[field].trim()) {
-        errors[field] = `${labels[field]} is required`;
-      }
-    }
-
-    // If anything is wrong, show it all and stop
+    // 1. Validate in the browser first
+    const errors = validate(form);
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
     }
 
+    // 2. Log in (the API sets the session cookie)
     setIsSubmitting(true);
-
     try {
       await login(form);
       navigate("/");
@@ -71,6 +75,7 @@ export function LoginPage() {
           ),
         );
       } else if (error instanceof ApiError) {
+        // 401 "Email or password is incorrect" lands here
         setFormError(error.message);
       } else {
         setFormError("Something went wrong. Please try again.");
@@ -81,10 +86,7 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout
-      title="Log in"
-      subtitle="Welcome back! Please enter your details."
-    >
+    <AuthLayout title="Welcome back" subtitle="Log in to see your memories.">
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         {formError && (
           <p
@@ -95,27 +97,25 @@ export function LoginPage() {
           </p>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            id="usernameOrEmail"
-            name="usernameOrEmail"
-            label="Username or Email"
-            autoComplete="username"
-            value={form.usernameOrEmail}
-            onChange={handleChange}
-            error={fieldErrors.usernameOrEmail}
-          />
+        <Input
+          id="usernameOrEmail"
+          name="usernameOrEmail"
+          label="Username or email"
+          autoComplete="username"
+          value={form.usernameOrEmail}
+          onChange={handleChange}
+          error={fieldErrors.usernameOrEmail}
+        />
 
-          <PasswordInput
-            id="password"
-            name="password"
-            label="Password"
-            autoComplete="new-password"
-            value={form.password}
-            onChange={handleChange}
-            error={fieldErrors.password}
-          />
-        </div>
+        <PasswordInput
+          id="password"
+          name="password"
+          label="Password"
+          autoComplete="current-password"
+          value={form.password}
+          onChange={handleChange}
+          error={fieldErrors.password}
+        />
 
         <Button type="submit" isLoading={isSubmitting}>
           Log in
