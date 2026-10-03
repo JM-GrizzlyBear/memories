@@ -8,6 +8,7 @@ import { RegisterUser } from "./application/user/RegisterUser.js";
 import { PostgresUserRepository } from "./infrastructure/database/PostgresUserRepository.js";
 import { createSessionMiddleware } from "./presentation/http/session.js";
 import { LoginUser } from "./application/user/LoginUser.js";
+import { GetCurrentUser } from "./application/user/GetCurrentUser.js";
 
 const port = Number(process.env.PORT ?? 4000);
 const sessionSecret = process.env.SESSION_SECRET;
@@ -24,7 +25,12 @@ const passwordHasher = new BcryptPasswordHasher();
 const userRepository = new PostgresUserRepository(pool);
 const registerUser = new RegisterUser(userRepository, passwordHasher);
 const loginUser = new LoginUser(userRepository, passwordHasher);
-const authController = new AuthController(registerUser, loginUser);
+const getCurrentUser = new GetCurrentUser(userRepository);
+const authController = new AuthController(
+  registerUser,
+  loginUser,
+  getCurrentUser,
+);
 const authRouter = createAuthRouter(authController);
 
 createApp({ authRouter, sessionMiddleware }).listen(port, () => {

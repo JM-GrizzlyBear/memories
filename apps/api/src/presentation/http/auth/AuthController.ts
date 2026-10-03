@@ -9,6 +9,7 @@ import {
 } from "../../../domain/user/errors.js";
 import { loginSchema } from "./loginSchema.js";
 import { registerSchema } from "./registerSchema.js";
+import type { GetCurrentUser } from "../../../application/user/GetCurrentUser.js";
 
 /**
  * Replaces the current session with a brand-new one (new session id).
@@ -26,6 +27,7 @@ export class AuthController {
   constructor(
     private readonly registerUser: RegisterUser,
     private readonly loginUser: LoginUser,
+    private readonly getCurrentUser: GetCurrentUser,
   ) {}
 
   register = async (req: Request, res: Response) => {
@@ -79,6 +81,22 @@ export class AuthController {
       }
       throw error;
     }
+  };
+
+  me = async (req: Request, res: Response) => {
+    const userId = req.session.userId;
+    if (!userId) {
+      res.status(401).json({ error: "Not logged in" });
+      return;
+    }
+
+    const user = await this.getCurrentUser.execute(userId);
+    if (!user) {
+      res.status(401).json({ error: "Not logged in" });
+      return;
+    }
+
+    res.status(200).json({ user });
   };
 
   logout = (req: Request, res: Response, next: NextFunction) => {

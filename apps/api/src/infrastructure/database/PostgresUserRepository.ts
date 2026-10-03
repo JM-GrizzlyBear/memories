@@ -35,9 +35,19 @@ function toUser(row: UserRow): User {
 
 export class PostgresUserRepository implements UserRepository {
   constructor(private readonly pool: Pool) {}
+
+  async findById(id: string): Promise<User | null> {
+    const result = await this.pool.query<UserRow>(
+      "SELECT * FROM users WHERE id = $1",
+      [id],
+    );
+    const row = result.rows[0];
+    return row ? toUser(row) : null;
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     const result = await this.pool.query<UserRow>(
-      "SELECT * FROM users where email = $1",
+      "SELECT * FROM users WHERE email = $1",
       [email],
     );
     const row = result.rows[0];
@@ -46,7 +56,7 @@ export class PostgresUserRepository implements UserRepository {
 
   async findByUsername(username: string): Promise<User | null> {
     const result = await this.pool.query<UserRow>(
-      "SELECT * FROM users where username = $1",
+      "SELECT * FROM users WHERE username = $1",
       [username],
     );
     const row = result.rows[0];
