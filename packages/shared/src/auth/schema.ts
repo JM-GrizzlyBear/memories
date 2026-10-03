@@ -44,3 +44,10 @@ export const registerSchema = z.object({
 });
 
 export type RegisterBody = z.infer<typeof registerSchema>;
+
+export const loginSchema = z.object({
+  usernameOrEmail: z.string().trim().min(1, "Username or email is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export type LoginBody = z.infer<typeof loginSchema>;

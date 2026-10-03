@@ -7,8 +7,7 @@ import {
   InvalidCredentialsError,
   UsernameAlreadyTakenError,
 } from "../../../domain/user/errors.js";
-import { loginSchema } from "./loginSchema.js";
-import { registerSchema } from "./registerSchema.js";
+import { loginSchema, registerSchema } from "@memories/shared";
 import type { GetCurrentUser } from "../../../application/user/GetCurrentUser.js";
 
 /**

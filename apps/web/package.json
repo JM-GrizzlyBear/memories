@@ -11,6 +11,7 @@
     "check-types": "tsc -b"
   },
   "dependencies": {
+    "@memories/shared": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "lucide-react": "^1.50.0",
     "react": "^19.2.8",
