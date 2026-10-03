@@ -1,5 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
+import { registerSchema } from "@memories/shared";
+import { z } from "zod";
 import { register } from "../../infrastructure/api/authApi";
 import { ApiError } from "../../infrastructure/api/http";
 import { AuthLayout } from "../components/layout/AuthLayout";
@@ -20,6 +22,50 @@ const initialForm = {
 type RegisterForm = typeof initialForm;
 type FieldErrors = Partial<Record<keyof RegisterForm, string>>;
 
+const labels: Record<keyof RegisterForm, string> = {
+  firstName: "First name",
+  lastName: "Last name",
+  username: "Username",
+  email: "Email",
+  birthday: "Birthday",
+  password: "Password",
+  confirmPassword: "Confirm password",
+};
+
+// Checks the form in the browser, collecting ALL errors at once
+function validate(form: RegisterForm): FieldErrors {
+  const errors: FieldErrors = {};
+
+  // Same rules as the API, from @memories/shared (email format, password length, age...)
+  const result = registerSchema.safeParse(form);
+  if (!result.success) {
+    const fieldMessages = z.flattenError(result.error).fieldErrors;
+    for (const [field, messages] of Object.entries(fieldMessages)) {
+      if (messages?.[0]) {
+        errors[field as keyof RegisterForm] = messages[0];
+      }
+    }
+  }
+
+  // Empty fields get a clear "is required" message (replaces any format message)
+  for (const field of Object.keys(form) as (keyof RegisterForm)[]) {
+    if (!form[field].trim()) {
+      errors[field] = `${labels[field]} is required`;
+    }
+  }
+
+  // Confirm password is a frontend-only rule (the API never sees it)
+  if (
+    form.password &&
+    form.confirmPassword &&
+    form.password !== form.confirmPassword
+  ) {
+    errors.confirmPassword = "Passwords do not match";
+  }
+
+  return errors;
+}
+
 export function RegisterPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
@@ -35,58 +81,25 @@ export function RegisterPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     setFieldErrors({});
     setFormError(null);
 
-    // 2. Check the form in the browser first, collecting ALL errors at once
-    const errors: FieldErrors = {};
-
-    const labels: Record<keyof RegisterForm, string> = {
-      firstName: "First name",
-      lastName: "Last name",
-      username: "Username",
-      email: "Email",
-      birthday: "Birthday",
-      password: "Password",
-      confirmPassword: "Confirm password",
-    };
-
-    // Email must look like name@domain.com
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      errors.email = "Invalid email";
-    }
-
-    // Every field is required
-    for (const field of Object.keys(form) as (keyof RegisterForm)[]) {
-      if (!form[field].trim()) {
-        errors[field] = `${labels[field]} is required`;
-      }
-    }
-
-    // Only compare passwords if both were typed
-    if (
-      form.password &&
-      form.confirmPassword &&
-      form.password !== form.confirmPassword
-    ) {
-      errors.confirmPassword = "Passwords do not match";
-    }
-
-    // If anything is wrong, show it all and stop
+    // 1. Validate in the browser first: instant feedback, no request sent
+    const errors = validate(form);
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
     }
 
+    // 2. Send to the API (which validates again, for security)
     setIsSubmitting(true);
-
     try {
       const { confirmPassword: _, ...input } = form;
       await register(input);
       navigate("/login");
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
+        // Validation errors from the API: one message per field
         setFieldErrors(
           Object.fromEntries(
             Object.entries(error.fieldErrors).map(([field, messages]) => [
@@ -96,11 +109,14 @@ export function RegisterPage() {
           ),
         );
       } else if (error instanceof ApiError) {
+        // Other API errors, like 409 "Email is already taken"
         setFormError(error.message);
       } else {
+        // Network down, API not running, etc.
         setFormError("Something went wrong. Please try again.");
       }
     } finally {
+      // Always stop loading, success or failure
       setIsSubmitting(false);
     }
   }
