@@ -7,6 +7,7 @@ import { ApiError } from "../../infrastructure/api/http";
 import { AuthLayout } from "../components/layout/AuthLayout";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
+import { useAuth } from "../../application/auth/useAuth";
 import { PasswordInput } from "../components/ui/PasswordInput";
 
 const initialForm = {
@@ -36,6 +37,7 @@ function validate(form: LoginForm): FieldErrors {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { setUser } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -59,11 +61,11 @@ export function LoginPage() {
       return;
     }
 
-    // 2. Log in (the API sets the session cookie)
     setIsSubmitting(true);
     try {
-      await login(form);
-      navigate("/");
+      const user = await login(form);
+      setUser(user);
+      navigate("/", { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
         setFieldErrors(

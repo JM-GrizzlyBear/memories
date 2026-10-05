@@ -1,5 +1,5 @@
 import type { User } from "../../domain/user";
-import { request } from "./http";
+import { ApiError, request } from "./http";
 
 export interface RegisterInput {
   username: string;
@@ -32,4 +32,21 @@ export async function login(input: LoginInput): Promise<User> {
     body: JSON.stringify(input),
   });
   return data.user;
+}
+
+// Who is logged in? Returns null when nobody is (401 is normal here, not an error)
+export async function getCurrentUser(): Promise<User | null> {
+  try {
+    const data = await request<{ user: User }>("/auth/me");
+    return data.user;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function logout(): Promise<void> {
+  await request<void>("/auth/logout", { method: "POST" });
 }
