@@ -1,0 +1,24 @@
+name: Clear cache
+
+on:
+  # Manual: a "Run workflow" button appears in the Actions tab
+  workflow_dispatch:
+
+  # Automatic: every Monday 12:00 AM Philippine time
+  # Cron uses UTC: Monday 00:00 in Manila (UTC+8) = Sunday 16:00 UTC
+  schedule:
+    - cron: "0 16 * * 0"
+
+# This workflow needs permission to delete caches
+permissions:
+  actions: write
+
+jobs:
+  clear:
+    name: Delete all Actions caches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete caches
+        run: gh cache delete --all --repo "$GITHUB_REPOSITORY" || echo "No caches to delete"
+        env:
+          GH_TOKEN: ${{ github.token }}
