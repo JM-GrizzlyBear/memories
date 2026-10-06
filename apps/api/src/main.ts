@@ -1,26 +1,29 @@
 import "dotenv/config";
-import { BcryptPasswordHasher } from "./infrastructure/security/BcryptPasswordHasher.js";
-import { createPool } from "./infrastructure/database/pool.js";
-import { createApp } from "./presentation/http/app.js";
-import { createAuthRouter } from "./presentation/http/auth/authRoutes.js";
-import { AuthController } from "./presentation/http/auth/AuthController.js";
-import { RegisterUser } from "./application/user/RegisterUser.js";
-import { PostgresUserRepository } from "./infrastructure/database/PostgresUserRepository.js";
-import { createSessionMiddleware } from "./presentation/http/session.js";
-import { LoginUser } from "./application/user/LoginUser.js";
 import { GetCurrentUser } from "./application/user/GetCurrentUser.js";
+import { LoginUser } from "./application/user/LoginUser.js";
+import { RegisterUser } from "./application/user/RegisterUser.js";
+import { createPool } from "./infrastructure/database/pool.js";
+import { PostgresUserRepository } from "./infrastructure/database/PostgresUserRepository.js";
+import { BcryptPasswordHasher } from "./infrastructure/security/BcryptPasswordHasher.js";
+import { createApp } from "./presentation/http/app.js";
+import { AuthController } from "./presentation/http/auth/AuthController.js";
+import { createAuthRouter } from "./presentation/http/auth/authRoutes.js";
+import { createSessionMiddleware } from "./presentation/http/session.js";
 
 const port = Number(process.env.PORT ?? 4000);
-const sessionSecret = process.env.SESSION_SECRET;
-if (!sessionSecret) throw new Error("SESSION_SECRET is missing");
+const isProduction = process.env.NODE_ENV === "production";
+const webDistDir = process.env.WEB_DIST_DIR; // set only in the Docker image
+
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is missing");
+
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) throw new Error("SESSION_SECRET is missing");
 
 const pool = createPool(databaseUrl);
 await pool.query("SELECT 1");
 console.log("Connected to database");
 
-const sessionMiddleware = createSessionMiddleware(pool, sessionSecret);
 const passwordHasher = new BcryptPasswordHasher();
 const userRepository = new PostgresUserRepository(pool);
 const registerUser = new RegisterUser(userRepository, passwordHasher);
@@ -32,7 +35,24 @@ const authController = new AuthController(
   getCurrentUser,
 );
 const authRouter = createAuthRouter(authController);
+const sessionMiddleware = createSessionMiddleware(pool, sessionSecret);
 
-createApp({ authRouter, sessionMiddleware }).listen(port, () => {
-  console.log(`API running on http://localhost:${port}`);
+const app = createApp({
+  authRouter,
+  sessionMiddleware,
+  isProduction,
+  webDistDir,
+});
+
+const server = app.listen(port, () => {
+  console.log(`API running on port ${port}`);
+});
+
+// Render stops old containers with SIGTERM: finish requests, close the DB, exit
+process.on("SIGTERM", () => {
+  console.log("Shutting down...");
+  server.close(async () => {
+    await pool.end();
+    process.exit(0);
+  });
 });
