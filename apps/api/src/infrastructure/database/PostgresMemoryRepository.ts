@@ -2,9 +2,12 @@ import type { Pool } from "pg";
 import type {
   Memory,
   MemoryPhoto,
+  MemoryWithAuthor,
   Visibility,
 } from "../../domain/memory/Memory.js";
 import type {
+  JournalItem,
+  JournalQuery,
   MemoryRepository,
   NewMemory,
 } from "../../domain/memory/MemoryRepository.js";
@@ -19,6 +22,15 @@ interface MemoryRow {
   visibility: Visibility;
   created_at: Date;
   updated_at: Date;
+}
+
+interface JournalRow extends MemoryRow {
+  created_at_text: string; // exact timestamp, used for the cursor
+  username: string;
+  first_name: string;
+  last_name: string;
+  profile_photo_url: string | null;
+  photos: MemoryPhoto[]; // built as JSON by Postgres
 }
 
 function toMemory(row: MemoryRow, photos: MemoryPhoto[]): Memory {
@@ -85,5 +97,47 @@ export class PostgresMemoryRepository implements MemoryRepository {
     } finally {
       client.release(); // always give the connection back to the pool
     }
+  }
+
+  async findJournal({
+    viewerId,
+    limit,
+    after,
+  }: JournalQuery): Promise<JournalItem[]> {
+    const result = await this.pool.query<JournalRow>(
+      `SELECT
+       m.*,
+       m.created_at::text AS created_at_text,
+       u.username, u.first_name, u.last_name, u.profile_photo_url,
+       COALESCE(
+         (SELECT json_agg(
+                   json_build_object('id', p.id, 'url', p.url, 'position', p.position)
+                   ORDER BY p.position)
+            FROM memory_photos p
+           WHERE p.memory_id = m.id),
+         '[]'::json
+       ) AS photos
+     FROM memories m
+     JOIN users u ON u.id = m.user_id
+     WHERE (m.user_id = $1 OR m.visibility = 'public')
+       AND ($2::timestamptz IS NULL OR (m.created_at, m.id) < ($2::timestamptz, $3::uuid))
+     ORDER BY m.created_at DESC, m.id DESC
+     LIMIT $4`,
+      [viewerId, after?.createdAt ?? null, after?.id ?? null, limit],
+    );
+
+    return result.rows.map((row) => {
+      const memory: MemoryWithAuthor = {
+        ...toMemory(row, row.photos),
+        author: {
+          id: row.user_id,
+          username: row.username,
+          firstName: row.first_name,
+          lastName: row.last_name,
+          profilePhotoUrl: row.profile_photo_url,
+        },
+      };
+      return { memory, cursor: { createdAt: row.created_at_text, id: row.id } };
+    });
   }
 }

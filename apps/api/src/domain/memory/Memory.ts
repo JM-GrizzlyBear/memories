@@ -18,3 +18,15 @@ export interface Memory {
   createdAt: Date; // the day it was kept
   updatedAt: Date;
 }
+
+export interface MemoryAuthor {
+  id: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  profilePhotoUrl: string | null;
+}
+
+export interface MemoryWithAuthor extends Memory {
+  author: MemoryAuthor;
+}

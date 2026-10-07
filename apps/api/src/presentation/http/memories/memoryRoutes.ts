@@ -7,6 +7,7 @@ export function createMemoryRouter(controller: MemoryController) {
   const router = Router();
 
   // Order matters: check login BEFORE reading any uploaded files
+  router.get("/", requireAuth, controller.list);
   router.post("/", requireAuth, uploadPhotos, controller.create);
 
   return router;
