@@ -3,43 +3,51 @@ import express, { type RequestHandler, type Router } from "express";
 
 interface AppDependencies {
   authRouter: Router;
+  memoryRouter: Router;
   sessionMiddleware: RequestHandler;
   isProduction: boolean;
-  webDistDir?: string; // folder of the built React site (only in Docker)
+  uploadsDir: string;
+  webDistDir?: string;
 }
 
 export function createApp({
   authRouter,
+  memoryRouter,
   sessionMiddleware,
   isProduction,
+  uploadsDir,
   webDistDir,
 }: AppDependencies) {
   const app = express();
 
-  // Render sits in front of us and handles HTTPS. Trusting its proxy lets
-  // Express see the request as secure, so the secure cookie is sent.
   if (isProduction) {
     app.set("trust proxy", 1);
   }
 
   app.use(express.json());
 
-  // Health check first: no session needed
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
   });
 
+  app.use(
+    "/uploads",
+    express.static(uploadsDir, {
+      setHeaders: (res) => res.setHeader("X-Content-Type-Options", "nosniff"),
+    }),
+  );
+
   app.use(sessionMiddleware);
   app.use("/api/auth", authRouter);
+  app.use("/api/memories", memoryRouter);
 
-  // In production, the same server sends the React site
   if (webDistDir) {
     app.use(express.static(webDistDir));
 
-    // Any other GET (like /login on refresh) gets index.html,
-    // and React Router shows the right page
     app.use((req, res, next) => {
-      if (req.method !== "GET" || req.path.startsWith("/api")) return next();
+      const isApiOrFile =
+        req.path.startsWith("/api") || req.path.startsWith("/uploads");
+      if (req.method !== "GET" || isApiOrFile) return next();
       res.sendFile(path.join(webDistDir, "index.html"));
     });
   }
