@@ -1,3 +1,9 @@
+import path from "node:path";
+import { CreateMemory } from "./application/memory/CreateMemory.js";
+import { PostgresMemoryRepository } from "./infrastructure/database/PostgresMemoryRepository.js";
+import { LocalPhotoStorage } from "./infrastructure/storage/LocalPhotoStorage.js";
+import { MemoryController } from "./presentation/http/memories/MemoryController.js";
+import { createMemoryRouter } from "./presentation/http/memories/memoryRoutes.js";
 import "dotenv/config";
 import { GetCurrentUser } from "./application/user/GetCurrentUser.js";
 import { LoginUser } from "./application/user/LoginUser.js";
@@ -13,6 +19,7 @@ import { createSessionMiddleware } from "./presentation/http/session.js";
 const port = Number(process.env.PORT ?? 4000);
 const isProduction = process.env.NODE_ENV === "production";
 const webDistDir = process.env.WEB_DIST_DIR; // set only in the Docker image
+const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? "uploads");
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is missing");
@@ -35,12 +42,19 @@ const authController = new AuthController(
   getCurrentUser,
 );
 const authRouter = createAuthRouter(authController);
+const photoStorage = new LocalPhotoStorage(uploadsDir);
+const memoryRepository = new PostgresMemoryRepository(pool);
+const createMemory = new CreateMemory(memoryRepository, photoStorage);
+const memoryController = new MemoryController(createMemory);
+const memoryRouter = createMemoryRouter(memoryController);
 const sessionMiddleware = createSessionMiddleware(pool, sessionSecret);
 
 const app = createApp({
   authRouter,
+  memoryRouter,
   sessionMiddleware,
   isProduction,
+  uploadsDir,
   webDistDir,
 });
 
