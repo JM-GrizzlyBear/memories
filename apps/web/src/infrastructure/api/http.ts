@@ -19,18 +19,22 @@ export async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  // For file uploads, the browser must set Content-Type itself
+  // (it adds a "boundary" that separates the fields), so we only set JSON for other bodies
+  const isFormData = options.body instanceof FormData;
+
   const response = await fetch(`/api${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: isFormData
+      ? options.headers
+      : { "Content-Type": "application/json", ...options.headers },
   });
 
-  // 204 No Content (like logout): nothing to read
   if (response.status === 204) return undefined as T;
 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    // Our API sends { error: "..." } or { errors: { field: [...] } }
     throw new ApiError(
       response.status,
       data.error ?? "Something went wrong",

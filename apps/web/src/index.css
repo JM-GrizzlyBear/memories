@@ -1,1 +1,16 @@
 @import "tailwindcss";
+
+/* The Memories look: paper, ink, and a journal serif */
+:root {
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Newsreader", Georgia, serif;
+
+  --color-paper: #fafaf7;
+  --color-ink: #141414;
+  --color-line: #e4e2dc;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+}
