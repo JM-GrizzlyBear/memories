@@ -1,6 +1,7 @@
 import { createMemorySchema, MEMORY_LIMITS } from "@memories/shared";
-import { Check } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useState, type ChangeEvent, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router";
 import { z } from "zod";
 import type { Visibility } from "../../domain/memory";
 import { ApiError } from "../../infrastructure/api/http";
@@ -57,12 +58,12 @@ function validate(
 }
 
 export function KeepMemoryPage() {
+  const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [visibility, setVisibility] = useState<Visibility>("friends");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [keptTitle, setKeptTitle] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleChange(
@@ -72,18 +73,10 @@ export function KeepMemoryPage() {
     setForm((current) => ({ ...current, [name]: value }));
   }
 
-  function resetForm() {
-    photos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl)); // free the previews
-    setForm(initialForm);
-    setPhotos([]);
-    setVisibility("friends");
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFieldErrors({});
     setFormError(null);
-    setKeptTitle(null);
 
     const errors = validate(form, photos, visibility);
     if (Object.keys(errors).length > 0) {
@@ -93,15 +86,12 @@ export function KeepMemoryPage() {
 
     setIsSubmitting(true);
     try {
-      const memory = await createMemory({
+      await createMemory({
         ...form,
         visibility,
         photos: photos.map((photo) => photo.file),
       });
-      // Until the Journal exists (step 3.5): confirm here and start a fresh form
-      setKeptTitle(memory.title);
-      resetForm();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      navigate("/", { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
         setFieldErrors(
@@ -123,110 +113,122 @@ export function KeepMemoryPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6">
-      <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">
-        Keep a memory
-      </h1>
-      <p className="mt-2 text-neutral-500">
-        Photos hold the moment. The story holds why it mattered.
-      </p>
-
-      {/* role="status" makes screen readers announce it */}
-      <div role="status">
-        {keptTitle && (
-          <p className="mt-6 flex items-center gap-2.5 rounded-md border border-neutral-900 bg-white px-4 py-3 text-sm">
-            <Check size={18} aria-hidden="true" />
-            <span>
-              <span className="font-semibold">Memory kept.</span> &ldquo;
-              {keptTitle}&rdquo; is safe in your journal.
-            </span>
-          </p>
-        )}
-      </div>
-
-      <form
-        onSubmit={handleSubmit}
-        noValidate
-        className="mt-10 grid gap-12 lg:grid-cols-2"
-      >
-        {formError && (
-          <p
-            role="alert"
-            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 lg:col-span-2"
+    <div className="min-h-screen bg-paper text-ink">
+      <header className="border-b border-line">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+          <Link
+            to="/"
+            className="flex min-h-11 items-center gap-2 text-sm underline-offset-4 hover:underline"
           >
-            {formError}
-          </p>
-        )}
+            <ArrowLeft size={18} aria-hidden="true" />
+            Back to journal
+          </Link>
+          <span className="font-serif text-2xl font-medium tracking-tight">
+            Memories
+          </span>
+        </div>
+      </header>
 
-        <section aria-label="Photos">
-          <PhotoPicker
-            photos={photos}
-            onChange={setPhotos}
-            error={fieldErrors.photos}
-          />
-        </section>
+      <main className="mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6">
+        <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">
+          Keep a memory
+        </h1>
+        <p className="mt-2 text-neutral-500">
+          Photos hold the moment. The story holds why it mattered.
+        </p>
 
-        <section aria-label="Details" className="flex flex-col gap-5">
-          <Input
-            id="title"
-            name="title"
-            label="Title"
-            placeholder="Graduation trip with the barkada"
-            maxLength={MEMORY_LIMITS.titleMax}
-            value={form.title}
-            onChange={handleChange}
-            error={fieldErrors.title}
-          />
+        <form
+          onSubmit={handleSubmit}
+          noValidate
+          className="mt-10 grid gap-12 lg:grid-cols-2"
+        >
+          {formError && (
+            <p
+              role="alert"
+              className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 lg:col-span-2"
+            >
+              {formError}
+            </p>
+          )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input
-              id="memoryDate"
-              name="memoryDate"
-              type="date"
-              label="When did it happen?"
-              max={todayLocal()}
-              value={form.memoryDate}
-              onChange={handleChange}
-              error={fieldErrors.memoryDate}
+          <section aria-label="Photos">
+            <PhotoPicker
+              photos={photos}
+              onChange={setPhotos}
+              error={fieldErrors.photos}
             />
+          </section>
+
+          <section aria-label="Details" className="flex flex-col gap-5">
             <Input
-              id="location"
-              name="location"
-              label="Where? (optional)"
-              placeholder="Baguio City"
-              maxLength={MEMORY_LIMITS.locationMax}
-              value={form.location}
+              id="title"
+              name="title"
+              label="Title"
+              placeholder="Graduation trip with the barkada"
+              maxLength={MEMORY_LIMITS.titleMax}
+              value={form.title}
               onChange={handleChange}
-              error={fieldErrors.location}
+              error={fieldErrors.title}
             />
-          </div>
 
-          <TextArea
-            id="story"
-            name="story"
-            label="The story"
-            rows={7}
-            placeholder="Who was there? What did it feel like? What do you want to remember?"
-            maxLength={MEMORY_LIMITS.storyMax}
-            hint={`${form.story.length} / ${MEMORY_LIMITS.storyMax}`}
-            value={form.story}
-            onChange={handleChange}
-            error={fieldErrors.story}
-          />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                id="memoryDate"
+                name="memoryDate"
+                type="date"
+                label="When did it happen?"
+                max={todayLocal()}
+                value={form.memoryDate}
+                onChange={handleChange}
+                error={fieldErrors.memoryDate}
+              />
+              <Input
+                id="location"
+                name="location"
+                label="Where? (optional)"
+                placeholder="Baguio City"
+                maxLength={MEMORY_LIMITS.locationMax}
+                value={form.location}
+                onChange={handleChange}
+                error={fieldErrors.location}
+              />
+            </div>
 
-          <VisibilityPicker
-            value={visibility}
-            onChange={setVisibility}
-            error={fieldErrors.visibility}
-          />
+            <TextArea
+              id="story"
+              name="story"
+              label="The story"
+              rows={7}
+              placeholder="Who was there? What did it feel like? What do you want to remember?"
+              maxLength={MEMORY_LIMITS.storyMax}
+              hint={`${form.story.length} / ${MEMORY_LIMITS.storyMax}`}
+              value={form.story}
+              onChange={handleChange}
+              error={fieldErrors.story}
+            />
 
-          <div className="mt-2 w-full sm:w-60">
-            <Button type="submit" isLoading={isSubmitting}>
-              Keep this memory
-            </Button>
-          </div>
-        </section>
-      </form>
-    </main>
+            <VisibilityPicker
+              value={visibility}
+              onChange={setVisibility}
+              error={fieldErrors.visibility}
+            />
+
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <div className="w-full sm:w-60">
+                <Button type="submit" isLoading={isSubmitting}>
+                  Keep this memory
+                </Button>
+              </div>
+              <Link
+                to="/"
+                className="flex min-h-11 items-center px-3 text-sm underline-offset-4 hover:underline"
+              >
+                Cancel
+              </Link>
+            </div>
+          </section>
+        </form>
+      </main>
+    </div>
   );
 }
