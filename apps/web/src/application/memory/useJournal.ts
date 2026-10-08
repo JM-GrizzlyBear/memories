@@ -1,0 +1,69 @@
+import { useCallback, useEffect, useState } from "react";
+import type { Memory } from "../../domain/memory";
+import { listJournal } from "../../infrastructure/api/memoryApi";
+
+type Status = "loading" | "ready" | "error";
+
+// Loads the journal page by page, and keeps track of loading and errors
+export function useJournal() {
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status>("loading");
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+
+  const loadFirstPage = useCallback(
+    async (isCancelled: () => boolean = () => false) => {
+      try {
+        const page = await listJournal();
+        if (isCancelled()) return;
+        setMemories(page.memories);
+        setNextCursor(page.nextCursor);
+        setStatus("ready");
+      } catch {
+        if (!isCancelled()) setStatus("error");
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    // If the page closes before the answer arrives, ignore the answer
+    let cancelled = false;
+    loadFirstPage(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [loadFirstPage]);
+
+  function retry() {
+    setStatus("loading");
+    loadFirstPage();
+  }
+
+  async function loadMore() {
+    if (!nextCursor || isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    setLoadMoreFailed(false);
+    try {
+      const page = await listJournal(nextCursor);
+      setMemories((current) => [...current, ...page.memories]);
+      setNextCursor(page.nextCursor);
+    } catch {
+      setLoadMoreFailed(true);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
+
+  return {
+    memories,
+    status,
+    hasMore: nextCursor !== null,
+    isLoadingMore,
+    loadMoreFailed,
+    loadMore,
+    retry,
+  };
+}

@@ -10,6 +10,10 @@ export interface CreateMemoryInput {
   photos: File[]; // in order; the first is the cover
 }
 
+export interface JournalPage {
+  memories: Memory[];
+  nextCursor: string | null; // null = no older memories
+}
 export async function createMemory(input: CreateMemoryInput): Promise<Memory> {
   // FormData = the browser's way to send text fields and files together
   const form = new FormData();
@@ -29,4 +33,14 @@ export async function createMemory(input: CreateMemoryInput): Promise<Memory> {
     body: form,
   });
   return data.memory;
+}
+
+export async function listJournal(
+  cursor?: string | null,
+): Promise<JournalPage> {
+  const params = new URLSearchParams({ limit: "10" });
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  return request<JournalPage>(`/memories?${params}`);
 }
