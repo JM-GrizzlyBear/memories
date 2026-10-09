@@ -8,6 +8,7 @@ import { AuthLayout } from "../components/layout/AuthLayout";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { PasswordInput } from "../components/ui/PasswordInput";
+import { DateInput } from "../components/ui/DateInput";
 
 const initialForm = {
   firstName: "",
@@ -178,14 +179,15 @@ export function RegisterPage() {
           error={fieldErrors.email}
         />
 
-        <Input
+        <DateInput
           id="birthday"
           name="birthday"
-          type="date"
           label="Birthday"
-          autoComplete="bday"
+          max={new Date().toLocaleDateString("en-CA")}
           value={form.birthday}
-          onChange={handleChange}
+          onChange={(isoDate) =>
+            setForm((current) => ({ ...current, birthday: isoDate }))
+          }
           error={fieldErrors.birthday}
         />
 
