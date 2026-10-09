@@ -9,12 +9,13 @@ import type {
   MemoryRepository,
   StoredMemoryPhoto,
 } from "../../domain/memory/MemoryRepository.js";
-import { canEdit, canView } from "../../domain/memory/visibility.js";
+import { canEdit } from "../../domain/memory/visibility.js";
 import type {
   PhotoStorage,
   PhotoUpload,
   StoredPhoto,
 } from "../ports/PhotoStorage.js";
+import type { MemoryAccess } from "./MemoryAccess.js";
 
 // One slot in the new photo list: a photo the memory already has, or a new upload
 export type PhotoOrderItem =
@@ -70,12 +71,14 @@ export class UpdateMemory {
   constructor(
     private readonly memories: MemoryRepository,
     private readonly photoStorage: PhotoStorage,
+    private readonly access: MemoryAccess,
   ) {}
 
   async execute(input: UpdateMemoryInput) {
-    const memory = await this.memories.findById(input.memoryId);
-    if (!memory || !canView(memory, input.viewerId))
-      throw new MemoryNotFoundError();
+    const memory = await this.access.findViewable(
+      input.memoryId,
+      input.viewerId,
+    );
     if (!canEdit(memory, input.viewerId)) throw new NotMemoryOwnerError();
 
     const currentFiles = await this.memories.findPhotoFiles(input.memoryId);
@@ -123,7 +126,10 @@ export class UpdateMemory {
       removed.map((file) => this.photoStorage.delete(file.storageKey)),
     );
 
-    const updated = await this.memories.findById(input.memoryId);
+    const updated = await this.memories.findById(
+      input.memoryId,
+      input.viewerId,
+    );
     if (!updated) throw new MemoryNotFoundError();
     return updated;
   }

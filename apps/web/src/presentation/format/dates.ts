@@ -51,3 +51,11 @@ export function timeAgo(iso: string) {
   }
   return "just now";
 }
+
+// "May 2024", for "friends since" and "joined"
+export function monthYear(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}

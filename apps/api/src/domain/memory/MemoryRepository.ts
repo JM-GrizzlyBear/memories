@@ -34,6 +34,7 @@ export interface JournalCursor {
 
 export interface JournalQuery {
   viewerId: string;
+  authorId: string | null; // null = everyone's (the journal); an id = one person's (their profile)
   limit: number;
   after: JournalCursor | null;
 }
@@ -46,7 +47,8 @@ export interface JournalItem {
 export interface MemoryRepository {
   create(memory: NewMemory): Promise<Memory>;
   findJournal(query: JournalQuery): Promise<JournalItem[]>;
-  findById(id: string): Promise<MemoryWithAuthor | null>;
+  // viewerId fills in likedByMe; without it, likedByMe is false
+  findById(id: string, viewerId?: string): Promise<MemoryWithAuthor | null>;
   findPhotoFiles(memoryId: string): Promise<StoredMemoryPhoto[]>;
   update(memoryId: string, changes: MemoryUpdate): Promise<void>;
   delete(memoryId: string): Promise<void>;

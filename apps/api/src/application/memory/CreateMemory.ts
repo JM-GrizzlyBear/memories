@@ -1,5 +1,8 @@
 import { MEMORY_LIMITS } from "@memories/shared";
-import { InvalidPhotoCountError } from "../../domain/memory/errors.js";
+import {
+  InvalidPhotoCountError,
+  MemoryNotFoundError,
+} from "../../domain/memory/errors.js";
 import type { Visibility } from "../../domain/memory/Memory.js";
 import type { MemoryRepository } from "../../domain/memory/MemoryRepository.js";
 import type {
@@ -33,13 +36,14 @@ export class CreateMemory {
     }
 
     const stored: StoredPhoto[] = [];
+    let createdId: string;
     try {
       // Save in order, so position 0 is the first photo (the cover)
       for (const photo of input.photos) {
         stored.push(await this.photoStorage.save(photo));
       }
 
-      return await this.memories.create({
+      const created = await this.memories.create({
         userId: input.userId,
         title: input.title,
         story: input.story,
@@ -48,6 +52,7 @@ export class CreateMemory {
         visibility: input.visibility,
         photos: stored.map((photo, position) => ({ ...photo, position })),
       });
+      createdId = created.id;
     } catch (error) {
       // Something failed halfway: delete the files we already saved, so none are orphaned
       await Promise.allSettled(
@@ -55,5 +60,10 @@ export class CreateMemory {
       );
       throw error;
     }
+
+    // Send it back the same way the journal shows it: with the author and counts
+    const memory = await this.memories.findById(createdId, input.userId);
+    if (!memory) throw new MemoryNotFoundError();
+    return memory;
   }
 }

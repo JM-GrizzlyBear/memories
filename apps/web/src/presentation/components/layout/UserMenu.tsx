@@ -1,5 +1,6 @@
-import { LogOut } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { useAuth } from "../../../application/auth/useAuth";
 
 export function UserMenu() {
@@ -9,7 +10,7 @@ export function UserMenu() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const firstItemRef = useRef<HTMLButtonElement>(null);
+  const firstItemRef = useRef<HTMLAnchorElement>(null);
 
   // While open: move focus into the menu, close on Escape or a click outside
   useEffect(() => {
@@ -83,8 +84,19 @@ export function UserMenu() {
 
           <div className="my-1 border-t border-line" />
 
-          <button
+          <Link
             ref={firstItemRef}
+            to={`/u/${user.username}`}
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+            className="flex min-h-11 w-full items-center gap-2.5 rounded px-3 text-left text-sm text-ink transition
+              hover:bg-neutral-100 focus-visible:bg-neutral-100 focus-visible:outline-none"
+          >
+            <UserRound size={16} aria-hidden="true" />
+            Your profile
+          </Link>
+
+          <button
             type="button"
             role="menuitem"
             onClick={handleLogout}
