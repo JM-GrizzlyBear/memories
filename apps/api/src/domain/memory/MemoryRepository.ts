@@ -16,6 +16,16 @@ export interface NewMemory {
   photos: NewMemoryPhoto[];
 }
 
+// Everything an edit can change; photos is the complete new list, in order
+export type MemoryUpdate = Omit<NewMemory, "userId">;
+
+// A saved photo with its storage key (needed to delete the file)
+export interface StoredMemoryPhoto {
+  id: string;
+  url: string;
+  storageKey: string;
+}
+
 // A bookmark in the journal: the exact created_at text from Postgres + the id
 export interface JournalCursor {
   createdAt: string;
@@ -25,7 +35,7 @@ export interface JournalCursor {
 export interface JournalQuery {
   viewerId: string;
   limit: number;
-  after: JournalCursor | null; // null = start from the newest
+  after: JournalCursor | null;
 }
 
 export interface JournalItem {
@@ -37,4 +47,7 @@ export interface MemoryRepository {
   create(memory: NewMemory): Promise<Memory>;
   findJournal(query: JournalQuery): Promise<JournalItem[]>;
   findById(id: string): Promise<MemoryWithAuthor | null>;
+  findPhotoFiles(memoryId: string): Promise<StoredMemoryPhoto[]>;
+  update(memoryId: string, changes: MemoryUpdate): Promise<void>;
+  delete(memoryId: string): Promise<void>;
 }

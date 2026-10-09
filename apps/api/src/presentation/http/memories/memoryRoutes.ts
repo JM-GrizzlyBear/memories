@@ -9,6 +9,9 @@ export function createMemoryRouter(controller: MemoryController) {
   // Order matters: check login BEFORE reading any uploaded files
   router.get("/", requireAuth, controller.list);
   router.post("/", requireAuth, uploadPhotos, controller.create);
+  router.get("/:id", requireAuth, controller.get);
+  router.patch("/:id", requireAuth, uploadPhotos, controller.update);
+  router.delete("/:id", requireAuth, controller.remove);
 
   return router;
 }

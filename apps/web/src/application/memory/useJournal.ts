@@ -67,6 +67,20 @@ export function useJournal() {
     setStatus((current) => (current === "error" ? current : "ready"));
   }, []);
 
+  // Swap in an edited memory, keeping its place in the list
+  const replace = useCallback((memory: Memory) => {
+    setMemories((current) =>
+      current.map((existing) =>
+        existing.id === memory.id ? memory : existing,
+      ),
+    );
+  }, []);
+
+  // Take a deleted memory out of the list
+  const remove = useCallback((id: string) => {
+    setMemories((current) => current.filter((existing) => existing.id !== id));
+  }, []);
+
   return {
     memories,
     status,
@@ -76,5 +90,7 @@ export function useJournal() {
     loadMore,
     retry,
     prepend,
+    replace,
+    remove,
   };
 }

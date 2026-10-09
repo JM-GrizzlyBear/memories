@@ -9,7 +9,9 @@ import type {
   JournalItem,
   JournalQuery,
   MemoryRepository,
+  MemoryUpdate,
   NewMemory,
+  StoredMemoryPhoto,
 } from "../../domain/memory/MemoryRepository.js";
 
 interface MemoryRow {
@@ -158,5 +160,70 @@ export class PostgresMemoryRepository implements MemoryRepository {
     );
     const row = result.rows[0];
     return row ? toMemoryWithAuthor(row) : null;
+  }
+
+  async findPhotoFiles(memoryId: string): Promise<StoredMemoryPhoto[]> {
+    const result = await this.pool.query<{
+      id: string;
+      url: string;
+      storage_key: string;
+    }>(
+      `SELECT id, url, storage_key
+       FROM memory_photos
+      WHERE memory_id = $1
+      ORDER BY position`,
+      [memoryId],
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      url: row.url,
+      storageKey: row.storage_key,
+    }));
+  }
+
+  async update(memoryId: string, changes: MemoryUpdate): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      await client.query(
+        `UPDATE memories
+          SET title = $2, story = $3, memory_date = $4, location = $5, visibility = $6,
+              updated_at = now()
+        WHERE id = $1`,
+        [
+          memoryId,
+          changes.title,
+          changes.story,
+          toDateOnly(changes.memoryDate),
+          changes.location,
+          changes.visibility,
+        ],
+      );
+
+      // Replace the photo rows instead of moving them: swapping two positions one by one
+      // would briefly break UNIQUE (memory_id, position)
+      await client.query("DELETE FROM memory_photos WHERE memory_id = $1", [
+        memoryId,
+      ]);
+      for (const photo of changes.photos) {
+        await client.query(
+          `INSERT INTO memory_photos (memory_id, url, storage_key, position)
+         VALUES ($1, $2, $3, $4)`,
+          [memoryId, photo.url, photo.storageKey, photo.position],
+        );
+      }
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async delete(memoryId: string): Promise<void> {
+    await this.pool.query("DELETE FROM memories WHERE id = $1", [memoryId]);
   }
 }

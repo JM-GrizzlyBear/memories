@@ -25,18 +25,38 @@ function MemorySkeleton() {
 export function JournalPage() {
   const { user } = useAuth();
   const journal = useJournal();
-  const { openKeepMemory, lastKept, clearLastKept } = useKeepMemory();
-  const [keptTitle, setKeptTitle] = useState<string | null>(null);
+  const {
+    openKeepMemory,
+    lastSaved,
+    clearLastSaved,
+    lastDeleted,
+    clearLastDeleted,
+  } = useKeepMemory();
+  const [notice, setNotice] = useState<string | null>(null);
 
-  // A memory was just kept in the dialog: show it on top right away
-  const { prepend } = journal;
+  const { prepend, replace, remove } = journal;
+
+  // A memory was kept or edited in the dialog: show the change right away
   useEffect(() => {
-    if (!lastKept) return;
-    prepend(lastKept);
-    setKeptTitle(lastKept.title);
-    clearLastKept(); // handled, so it doesn't show again later
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [lastKept, prepend, clearLastKept]);
+    if (!lastSaved) return;
+    if (lastSaved.mode === "created") {
+      prepend(lastSaved.memory);
+      setNotice(`"${lastSaved.memory.title}" is now in your journal.`);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      replace(lastSaved.memory);
+      setNotice(`"${lastSaved.memory.title}" was updated.`);
+    }
+    clearLastSaved();
+  }, [lastSaved, prepend, replace, clearLastSaved]);
+
+  // A memory was deleted: take it off the page
+  useEffect(() => {
+    if (!lastDeleted) return;
+    remove(lastDeleted.id);
+    setNotice(`"${lastDeleted.title}" was deleted.`);
+    clearLastDeleted();
+  }, [lastDeleted, remove, clearLastDeleted]);
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-10 sm:px-6">
@@ -50,13 +70,10 @@ export function JournalPage() {
       </div>
 
       <div role="status">
-        {keptTitle && (
+        {notice && (
           <p className="mt-6 flex items-center gap-2.5 rounded-md border border-neutral-900 bg-white px-4 py-3 text-sm">
             <Check size={18} aria-hidden="true" />
-            <span>
-              <span className="font-semibold">Memory kept.</span> &ldquo;
-              {keptTitle}&rdquo; is now in your journal.
-            </span>
+            <span>{notice}</span>
           </p>
         )}
       </div>

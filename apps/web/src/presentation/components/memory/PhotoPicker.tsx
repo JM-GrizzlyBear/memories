@@ -8,11 +8,10 @@ import {
   type DragEvent,
 } from "react";
 
-export interface PickedPhoto {
-  id: string;
-  file: File;
-  previewUrl: string; // a temporary local URL so we can show the photo before uploading
-}
+// A photo already saved on the memory, or a new file picked from the device
+export type PickedPhoto =
+  | { kind: "existing"; id: string; previewUrl: string }
+  | { kind: "new"; id: string; file: File; previewUrl: string };
 
 interface PhotoPickerProps {
   photos: PickedPhoto[];
@@ -24,20 +23,22 @@ const ACCEPT = MEMORY_LIMITS.photoTypes.join(",");
 const MAX_MB = MEMORY_LIMITS.maxPhotoBytes / (1024 * 1024);
 const ALLOWED_TYPES = MEMORY_LIMITS.photoTypes as readonly string[];
 
+// Only new files have a temporary preview URL that must be freed
+function release(photo: PickedPhoto) {
+  if (photo.kind === "new") URL.revokeObjectURL(photo.previewUrl);
+}
+
 export function PhotoPicker({ photos, onChange, error }: PhotoPickerProps) {
   const [pickError, setPickError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Free every preview URL when the page closes (they use memory until released)
+  // Free every preview URL when the form closes
   const photosRef = useRef(photos);
   useEffect(() => {
     photosRef.current = photos;
   });
   useEffect(() => {
-    return () =>
-      photosRef.current.forEach((photo) =>
-        URL.revokeObjectURL(photo.previewUrl),
-      );
+    return () => photosRef.current.forEach(release);
   }, []);
 
   function addFiles(fileList: FileList | null) {
@@ -61,6 +62,7 @@ export function PhotoPicker({ photos, onChange, error }: PhotoPickerProps) {
         break;
       }
       accepted.push({
+        kind: "new",
         id: crypto.randomUUID(),
         file,
         previewUrl: URL.createObjectURL(file),
@@ -75,7 +77,7 @@ export function PhotoPicker({ photos, onChange, error }: PhotoPickerProps) {
 
   function remove(id: string) {
     const photo = photos.find((p) => p.id === id);
-    if (photo) URL.revokeObjectURL(photo.previewUrl);
+    if (photo) release(photo);
     onChange(photos.filter((p) => p.id !== id));
   }
 
