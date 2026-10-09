@@ -57,6 +57,16 @@ export function useJournal() {
     }
   }
 
+  // Put a just-kept memory at the top, without reloading (and never twice)
+  const prepend = useCallback((memory: Memory) => {
+    setMemories((current) =>
+      current.some((existing) => existing.id === memory.id)
+        ? current
+        : [memory, ...current],
+    );
+    setStatus((current) => (current === "error" ? current : "ready"));
+  }, []);
+
   return {
     memories,
     status,
@@ -65,5 +75,6 @@ export function useJournal() {
     loadMoreFailed,
     loadMore,
     retry,
+    prepend,
   };
 }

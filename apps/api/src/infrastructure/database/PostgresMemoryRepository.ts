@@ -24,7 +24,7 @@ interface MemoryRow {
   updated_at: Date;
 }
 
-interface JournalRow extends MemoryRow {
+interface MemoryWithAuthorRow extends MemoryRow {
   created_at_text: string; // exact timestamp, used for the cursor
   username: string;
   first_name: string;
@@ -51,6 +51,36 @@ function toMemory(row: MemoryRow, photos: MemoryPhoto[]): Memory {
 // Send DATE values as plain "YYYY-MM-DD", so time zones can't shift the day
 function toDateOnly(date: Date) {
   return date.toISOString().slice(0, 10);
+}
+
+// One memory with its author and photos (cover first). Used by the journal and the viewer.
+const SELECT_MEMORY_WITH_AUTHOR = `
+  SELECT
+    m.*,
+    m.created_at::text AS created_at_text,
+    u.username, u.first_name, u.last_name, u.profile_photo_url,
+    COALESCE(
+      (SELECT json_agg(
+                json_build_object('id', p.id, 'url', p.url, 'position', p.position)
+                ORDER BY p.position)
+         FROM memory_photos p
+        WHERE p.memory_id = m.id),
+      '[]'::json
+    ) AS photos
+  FROM memories m
+  JOIN users u ON u.id = m.user_id`;
+
+function toMemoryWithAuthor(row: MemoryWithAuthorRow): MemoryWithAuthor {
+  return {
+    ...toMemory(row, row.photos),
+    author: {
+      id: row.user_id,
+      username: row.username,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      profilePhotoUrl: row.profile_photo_url,
+    },
+  };
 }
 
 export class PostgresMemoryRepository implements MemoryRepository {
@@ -104,21 +134,9 @@ export class PostgresMemoryRepository implements MemoryRepository {
     limit,
     after,
   }: JournalQuery): Promise<JournalItem[]> {
-    const result = await this.pool.query<JournalRow>(
-      `SELECT
-       m.*,
-       m.created_at::text AS created_at_text,
-       u.username, u.first_name, u.last_name, u.profile_photo_url,
-       COALESCE(
-         (SELECT json_agg(
-                   json_build_object('id', p.id, 'url', p.url, 'position', p.position)
-                   ORDER BY p.position)
-            FROM memory_photos p
-           WHERE p.memory_id = m.id),
-         '[]'::json
-       ) AS photos
-     FROM memories m
-     JOIN users u ON u.id = m.user_id
+    // Keep this WHERE in sync with canView() in the domain
+    const result = await this.pool.query<MemoryWithAuthorRow>(
+      `${SELECT_MEMORY_WITH_AUTHOR}
      WHERE (m.user_id = $1 OR m.visibility = 'public')
        AND ($2::timestamptz IS NULL OR (m.created_at, m.id) < ($2::timestamptz, $3::uuid))
      ORDER BY m.created_at DESC, m.id DESC
@@ -126,18 +144,19 @@ export class PostgresMemoryRepository implements MemoryRepository {
       [viewerId, after?.createdAt ?? null, after?.id ?? null, limit],
     );
 
-    return result.rows.map((row) => {
-      const memory: MemoryWithAuthor = {
-        ...toMemory(row, row.photos),
-        author: {
-          id: row.user_id,
-          username: row.username,
-          firstName: row.first_name,
-          lastName: row.last_name,
-          profilePhotoUrl: row.profile_photo_url,
-        },
-      };
-      return { memory, cursor: { createdAt: row.created_at_text, id: row.id } };
-    });
+    return result.rows.map((row) => ({
+      memory: toMemoryWithAuthor(row),
+      cursor: { createdAt: row.created_at_text, id: row.id },
+    }));
+  }
+
+  async findById(id: string): Promise<MemoryWithAuthor | null> {
+    const result = await this.pool.query<MemoryWithAuthorRow>(
+      `${SELECT_MEMORY_WITH_AUTHOR}
+     WHERE m.id = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+    return row ? toMemoryWithAuthor(row) : null;
   }
 }

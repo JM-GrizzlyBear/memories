@@ -1,69 +1,65 @@
-import type { MemoryPhoto } from "../../../domain/memory";
+import { Link } from "react-router";
+import type { Memory } from "../../../domain/memory";
 
 interface PhotoMosaicProps {
-  photos: MemoryPhoto[];
-  title: string;
+  memory: Memory;
 }
 
-// Arranges photos by count: one big, two side by side, or a cover with two smaller ones
-export function PhotoMosaic({ photos, title }: PhotoMosaicProps) {
-  const sorted = [...photos].sort((a, b) => a.position - b.position);
-  const alt = (index: number) =>
-    `${title}, photo ${index + 1} of ${sorted.length}`;
+// Arranges photos by count; each one opens the viewer at that photo
+export function PhotoMosaic({ memory }: PhotoMosaicProps) {
+  const sorted = [...memory.photos].sort((a, b) => a.position - b.position);
+  const total = sorted.length;
 
-  if (sorted.length === 1) {
+  function PhotoLink({
+    index,
+    className,
+  }: {
+    index: number;
+    className: string;
+  }) {
+    const photo = sorted[index];
     return (
-      <img
-        src={sorted[0].url}
-        alt={alt(0)}
-        loading="lazy"
-        className="aspect-[4/3] w-full bg-neutral-200 object-cover"
-      />
+      <Link
+        to={`/memories/${memory.id}?photo=${index + 1}`}
+        state={{ memory }} // the viewer opens instantly, no extra request
+        className={`group block overflow-hidden bg-neutral-200 ${className}`}
+      >
+        <img
+          src={photo.url}
+          alt={`Open ${memory.title}, photo ${index + 1} of ${total}`}
+          loading="lazy"
+          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+        />
+      </Link>
     );
   }
 
-  if (sorted.length === 2) {
+  if (total === 1) {
+    return <PhotoLink index={0} className="aspect-[4/3]" />;
+  }
+
+  if (total === 2) {
     return (
       <div className="grid grid-cols-2 gap-1">
-        {sorted.map((photo, index) => (
-          <img
-            key={photo.id}
-            src={photo.url}
-            alt={alt(index)}
-            loading="lazy"
-            className="aspect-square w-full bg-neutral-200 object-cover"
-          />
-        ))}
+        <PhotoLink index={0} className="aspect-square" />
+        <PhotoLink index={1} className="aspect-square" />
       </div>
     );
   }
 
-  const [cover, second, third] = sorted;
-  const remaining = sorted.length - 3;
+  const remaining = total - 3;
 
   return (
     <div className="grid aspect-[3/2] grid-cols-3 grid-rows-2 gap-1">
-      <img
-        src={cover.url}
-        alt={alt(0)}
-        loading="lazy"
-        className="col-span-2 row-span-2 h-full w-full bg-neutral-200 object-cover"
-      />
-      <img
-        src={second.url}
-        alt={alt(1)}
-        loading="lazy"
-        className="h-full w-full bg-neutral-200 object-cover"
-      />
+      <PhotoLink index={0} className="col-span-2 row-span-2" />
+      <PhotoLink index={1} className="" />
       <div className="relative">
-        <img
-          src={third.url}
-          alt={alt(2)}
-          loading="lazy"
-          className="h-full w-full bg-neutral-200 object-cover"
-        />
+        <PhotoLink index={2} className="h-full" />
         {remaining > 0 && (
-          <span className="absolute inset-0 flex items-center justify-center bg-black/55 font-serif text-3xl text-white">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55 font-serif text-3xl text-white"
+          >
             +{remaining}
           </span>
         )}

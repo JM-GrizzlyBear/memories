@@ -16,6 +16,7 @@ import { AuthController } from "./presentation/http/auth/AuthController.js";
 import { createAuthRouter } from "./presentation/http/auth/authRoutes.js";
 import { createSessionMiddleware } from "./presentation/http/session.js";
 import { ListJournal } from "./application/memory/ListJournal.js";
+import { GetMemory } from "./application/memory/GetMemory.js";
 
 const port = Number(process.env.PORT ?? 4000);
 const isProduction = process.env.NODE_ENV === "production";
@@ -47,7 +48,12 @@ const photoStorage = new LocalPhotoStorage(uploadsDir);
 const memoryRepository = new PostgresMemoryRepository(pool);
 const createMemory = new CreateMemory(memoryRepository, photoStorage);
 const listJournal = new ListJournal(memoryRepository);
-const memoryController = new MemoryController(createMemory, listJournal);
+const getMemory = new GetMemory(memoryRepository);
+const memoryController = new MemoryController(
+  createMemory,
+  listJournal,
+  getMemory,
+);
 const memoryRouter = createMemoryRouter(memoryController);
 const sessionMiddleware = createSessionMiddleware(pool, sessionSecret);
 

@@ -36,4 +36,5 @@ export interface JournalItem {
 export interface MemoryRepository {
   create(memory: NewMemory): Promise<Memory>;
   findJournal(query: JournalQuery): Promise<JournalItem[]>;
+  findById(id: string): Promise<MemoryWithAuthor | null>;
 }

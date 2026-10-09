@@ -4,3 +4,10 @@ export class InvalidPhotoCountError extends Error {
     this.name = "InvalidPhotoCountError";
   }
 }
+
+export class MemoryNotFoundError extends Error {
+  constructor() {
+    super("Memory not found");
+    this.name = "MemoryNotFoundError";
+  }
+}

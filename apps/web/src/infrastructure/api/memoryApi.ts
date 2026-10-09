@@ -44,3 +44,10 @@ export async function listJournal(
   }
   return request<JournalPage>(`/memories?${params}`);
 }
+
+export async function getMemory(id: string): Promise<Memory> {
+  const data = await request<{ memory: Memory }>(
+    `/memories/${encodeURIComponent(id)}`,
+  );
+  return data.memory;
+}
