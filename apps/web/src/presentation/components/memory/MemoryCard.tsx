@@ -2,6 +2,7 @@ import { MapPin } from "lucide-react";
 import { useState } from "react";
 import type { Memory } from "../../../domain/memory";
 import { memoryAgo, memoryDateParts, timeAgo } from "../../format/dates";
+import { MemoryActionsMenu } from "./MemoryActionsMenu";
 import { PhotoMosaic } from "./PhotoMosaic";
 import { VISIBILITY } from "./visibility";
 
@@ -28,6 +29,7 @@ export function MemoryCard({ memory, currentUserId }: MemoryCardProps) {
     : "?";
   const { label: visibilityLabel, Icon: VisibilityIcon } =
     VISIBILITY[memory.visibility];
+  const wasEdited = memory.updatedAt !== memory.createdAt;
 
   const isLong = memory.story.length > STORY_PREVIEW_LENGTH;
   const story =
@@ -50,7 +52,7 @@ export function MemoryCard({ memory, currentUserId }: MemoryCardProps) {
       </div>
 
       <div className="overflow-hidden rounded-md border border-line bg-white">
-        <header className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
+        <header className="flex items-center gap-3 py-3 pl-4 pr-2 sm:pl-5">
           <span
             aria-hidden="true"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-300 text-xs font-semibold"
@@ -61,12 +63,18 @@ export function MemoryCard({ memory, currentUserId }: MemoryCardProps) {
             <p className="truncate text-sm font-semibold">{authorName}</p>
             <p className="truncate text-xs text-neutral-500">
               {memoryAgo(memory.memoryDate)} · kept {timeAgo(memory.createdAt)}
+              {wasEdited && " · edited"}
             </p>
           </div>
           <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-xs text-neutral-600">
             <VisibilityIcon size={13} aria-hidden="true" />
             {visibilityLabel}
           </span>
+          {isMine ? (
+            <MemoryActionsMenu memory={memory} />
+          ) : (
+            <span className="w-2" />
+          )}
         </header>
 
         <PhotoMosaic memory={memory} />

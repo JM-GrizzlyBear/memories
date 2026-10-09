@@ -3,25 +3,61 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { z } from "zod";
 import type { Memory, Visibility } from "../../../domain/memory";
 import { ApiError } from "../../../infrastructure/api/http";
-import { createMemory } from "../../../infrastructure/api/memoryApi";
+import {
+  createMemory,
+  updateMemory,
+} from "../../../infrastructure/api/memoryApi";
 import { Button } from "../ui/Button";
+import { DateInput } from "../ui/DateInput";
 import { Input } from "../ui/Input";
 import { TextArea } from "../ui/TextArea";
 import { PhotoPicker, type PickedPhoto } from "./PhotoPicker";
 import { VisibilityPicker } from "./VisibilityPicker";
-import { DateInput } from "../ui/DateInput";
 
-const initialForm = {
-  title: "",
-  story: "",
-  memoryDate: "",
-  location: "",
-};
+interface TextFields {
+  title: string;
+  story: string;
+  memoryDate: string;
+  location: string;
+}
 
-type TextFields = typeof initialForm;
 type FieldErrors = Partial<
   Record<keyof TextFields | "photos" | "visibility", string>
 >;
+
+// Start empty when keeping a new memory, or filled in when editing one
+function initialFields(memory?: Memory): TextFields {
+  return {
+    title: memory?.title ?? "",
+    story: memory?.story ?? "",
+    memoryDate: memory?.memoryDate.slice(0, 10) ?? "", // "2024-05-14T00:00:00.000Z" → "2024-05-14"
+    location: memory?.location ?? "",
+  };
+}
+
+function initialPhotos(memory?: Memory): PickedPhoto[] {
+  if (!memory) return [];
+  return [...memory.photos]
+    .sort((a, b) => a.position - b.position)
+    .map((photo) => ({
+      kind: "existing",
+      id: photo.id,
+      previewUrl: photo.url,
+    }));
+}
+
+// A fingerprint of the form, to tell if anything changed
+function snapshot(
+  form: TextFields,
+  photos: PickedPhoto[],
+  visibility: Visibility,
+) {
+  return JSON.stringify({
+    form,
+    photoIds: photos.map((photo) => photo.id),
+    visibility,
+  });
+}
 
 // Today as "YYYY-MM-DD" in the user's own time zone ("en-CA" happens to use that format)
 function todayLocal() {
@@ -54,29 +90,40 @@ function validate(
 }
 
 interface KeepMemoryFormProps {
-  onKept: (memory: Memory) => void;
+  memory?: Memory; // given = edit mode
+  onSaved: (memory: Memory) => void;
   onCancel: () => void;
   onDirtyChange: (isDirty: boolean) => void;
   onSubmittingChange: (isSubmitting: boolean) => void;
 }
 
 export function KeepMemoryForm({
-  onKept,
+  memory,
+  onSaved,
   onCancel,
   onDirtyChange,
   onSubmittingChange,
 }: KeepMemoryFormProps) {
-  const [form, setForm] = useState(initialForm);
-  const [photos, setPhotos] = useState<PickedPhoto[]>([]);
-  const [visibility, setVisibility] = useState<Visibility>("friends");
+  const isEditing = memory !== undefined;
+
+  const [form, setForm] = useState(() => initialFields(memory));
+  const [photos, setPhotos] = useState(() => initialPhotos(memory));
+  const [visibility, setVisibility] = useState<Visibility>(
+    memory?.visibility ?? "friends",
+  );
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // "Dirty" = the person has started something we shouldn't throw away silently
-  const isDirty =
-    photos.length > 0 ||
-    Object.values(form).some((value) => value.trim() !== "");
+  // "Dirty" = different from how the form started (empty, or the saved memory)
+  const [initialSnapshot] = useState(() =>
+    snapshot(
+      initialFields(memory),
+      initialPhotos(memory),
+      memory?.visibility ?? "friends",
+    ),
+  );
+  const isDirty = snapshot(form, photos, visibility) !== initialSnapshot;
   useEffect(() => {
     onDirtyChange(isDirty);
   }, [isDirty, onDirtyChange]);
@@ -106,12 +153,24 @@ export function KeepMemoryForm({
 
     setSubmitting(true);
     try {
-      const memory = await createMemory({
-        ...form,
-        visibility,
-        photos: photos.map((photo) => photo.file),
-      });
-      onKept(memory);
+      const saved = isEditing
+        ? await updateMemory(memory.id, {
+            ...form,
+            visibility,
+            photos: photos.map((photo) =>
+              photo.kind === "existing"
+                ? { kind: "existing", id: photo.id }
+                : { kind: "new", file: photo.file },
+            ),
+          })
+        : await createMemory({
+            ...form,
+            visibility,
+            photos: photos.flatMap((photo) =>
+              photo.kind === "new" ? [photo.file] : [],
+            ),
+          });
+      onSaved(saved);
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
         setFieldErrors(
@@ -227,7 +286,7 @@ export function KeepMemoryForm({
         </button>
         <div className="w-48">
           <Button type="submit" isLoading={isSubmitting}>
-            Keep this memory
+            {isEditing ? "Save changes" : "Keep this memory"}
           </Button>
         </div>
       </div>

@@ -7,3 +7,8 @@ export function canView(
 ) {
   return memory.userId === viewerId || memory.visibility === "public";
 }
+
+// Only the owner may change or delete a memory
+export function canEdit(memory: Pick<Memory, "userId">, viewerId: string) {
+  return memory.userId === viewerId;
+}

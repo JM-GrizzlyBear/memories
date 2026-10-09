@@ -11,3 +11,17 @@ export class MemoryNotFoundError extends Error {
     this.name = "MemoryNotFoundError";
   }
 }
+
+export class NotMemoryOwnerError extends Error {
+  constructor() {
+    super("Only the owner can change this memory");
+    this.name = "NotMemoryOwnerError";
+  }
+}
+
+export class InvalidPhotoOrderError extends Error {
+  constructor(message = "The photo list is invalid") {
+    super(message);
+    this.name = "InvalidPhotoOrderError";
+  }
+}

@@ -17,6 +17,8 @@ import { createAuthRouter } from "./presentation/http/auth/authRoutes.js";
 import { createSessionMiddleware } from "./presentation/http/session.js";
 import { ListJournal } from "./application/memory/ListJournal.js";
 import { GetMemory } from "./application/memory/GetMemory.js";
+import { DeleteMemory } from "./application/memory/DeleteMemory.js";
+import { UpdateMemory } from "./application/memory/UpdateMemory.js";
 
 const port = Number(process.env.PORT ?? 4000);
 const isProduction = process.env.NODE_ENV === "production";
@@ -49,10 +51,14 @@ const memoryRepository = new PostgresMemoryRepository(pool);
 const createMemory = new CreateMemory(memoryRepository, photoStorage);
 const listJournal = new ListJournal(memoryRepository);
 const getMemory = new GetMemory(memoryRepository);
+const updateMemory = new UpdateMemory(memoryRepository, photoStorage);
+const deleteMemory = new DeleteMemory(memoryRepository, photoStorage);
 const memoryController = new MemoryController(
   createMemory,
   listJournal,
   getMemory,
+  updateMemory,
+  deleteMemory,
 );
 const memoryRouter = createMemoryRouter(memoryController);
 const sessionMiddleware = createSessionMiddleware(pool, sessionSecret);

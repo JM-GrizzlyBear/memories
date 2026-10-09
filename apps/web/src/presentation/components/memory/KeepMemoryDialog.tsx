@@ -5,19 +5,23 @@ import { KeepMemoryForm } from "./KeepMemoryForm";
 
 interface KeepMemoryDialogProps {
   open: boolean;
+  memory: Memory | null; // a memory = edit mode
   onClose: () => void;
-  onKept: (memory: Memory) => void;
+  onSaved: (memory: Memory) => void;
 }
 
 export function KeepMemoryDialog({
   open,
+  memory,
   onClose,
-  onKept,
+  onSaved,
 }: KeepMemoryDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
+
+  const isEditing = memory !== null;
 
   // Open and close the real <dialog> when `open` changes
   useEffect(() => {
@@ -37,7 +41,7 @@ export function KeepMemoryDialog({
   function requestClose() {
     if (isSubmitting) return; // never close in the middle of an upload
     if (isDirty) {
-      setIsConfirmingDiscard(true); // ask first, don't lose their photos
+      setIsConfirmingDiscard(true);
       return;
     }
     finishClose();
@@ -49,9 +53,9 @@ export function KeepMemoryDialog({
     requestClose();
   }
 
-  function handleKept(memory: Memory) {
+  function handleSaved(saved: Memory) {
     setIsDirty(false);
-    onKept(memory);
+    onSaved(saved);
   }
 
   return (
@@ -66,7 +70,7 @@ export function KeepMemoryDialog({
       className="m-0 h-dvh max-h-none w-full max-w-none overflow-hidden bg-paper p-0 text-ink backdrop:bg-black/50
         motion-safe:animate-fade-in sm:m-auto sm:h-auto sm:max-h-[90vh] sm:w-[calc(100%-2rem)] sm:max-w-5xl sm:rounded-lg sm:shadow-2xl"
     >
-      {/* Only mounted while open, so every opening starts with a fresh, empty form */}
+      {/* Only mounted while open, so every opening starts fresh */}
       {open && (
         <div className="flex h-full flex-col sm:max-h-[90vh]">
           <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-8 sm:py-5">
@@ -75,10 +79,12 @@ export function KeepMemoryDialog({
                 id="keep-memory-title"
                 className="font-serif text-3xl tracking-tight"
               >
-                Keep a memory
+                {isEditing ? "Edit memory" : "Keep a memory"}
               </h2>
               <p className="mt-0.5 text-sm text-neutral-500">
-                Photos hold the moment. The story holds why it mattered.
+                {isEditing
+                  ? "Change the photos, the story, or who can see it."
+                  : "Photos hold the moment. The story holds why it mattered."}
               </p>
             </div>
             <button
@@ -92,7 +98,9 @@ export function KeepMemoryDialog({
           </header>
 
           <KeepMemoryForm
-            onKept={handleKept}
+            key={memory?.id ?? "new"} // a different memory = a completely fresh form
+            memory={memory ?? undefined}
+            onSaved={handleSaved}
             onCancel={requestClose}
             onDirtyChange={setIsDirty}
             onSubmittingChange={setIsSubmitting}
@@ -105,8 +113,17 @@ export function KeepMemoryDialog({
               className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-900 bg-white px-5 py-4 sm:px-8"
             >
               <p id="discard-title" className="text-sm">
-                <span className="font-semibold">Discard this memory?</span> Your
-                photos and story won't be saved.
+                {isEditing ? (
+                  <>
+                    <span className="font-semibold">Discard your changes?</span>{" "}
+                    The memory stays as it was.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold">Discard this memory?</span>{" "}
+                    Your photos and story won't be saved.
+                  </>
+                )}
               </p>
               <div className="flex gap-2">
                 <button
