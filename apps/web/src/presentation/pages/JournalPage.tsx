@@ -1,9 +1,9 @@
 import { Check, ImagePlus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
 import { useAuth } from "../../application/auth/useAuth";
 import { useJournal } from "../../application/memory/useJournal";
 import { MemoryCard } from "../components/memory/MemoryCard";
+import { useKeepMemory } from "../components/memory/useKeepMemory";
 
 function MemorySkeleton() {
   return (
@@ -24,18 +24,19 @@ function MemorySkeleton() {
 
 export function JournalPage() {
   const { user } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
   const journal = useJournal();
+  const { openKeepMemory, lastKept, clearLastKept } = useKeepMemory();
+  const [keptTitle, setKeptTitle] = useState<string | null>(null);
 
-  // "Memory kept" note from the Keep a memory page. Read it once, then clear it,
-  // so refreshing the page doesn't show it again.
-  const [keptTitle] = useState(
-    () => (location.state as { keptTitle?: string } | null)?.keptTitle ?? null,
-  );
+  // A memory was just kept in the dialog: show it on top right away
+  const { prepend } = journal;
   useEffect(() => {
-    if (keptTitle) navigate(".", { replace: true, state: null });
-  }, [keptTitle, navigate]);
+    if (!lastKept) return;
+    prepend(lastKept);
+    setKeptTitle(lastKept.title);
+    clearLastKept(); // handled, so it doesn't show again later
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [lastKept, prepend, clearLastKept]);
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-10 sm:px-6">
@@ -91,12 +92,13 @@ export function JournalPage() {
             Keep your first memory: a few photos and the story of why it
             mattered.
           </p>
-          <Link
-            to="/memories/new"
+          <button
+            type="button"
+            onClick={openKeepMemory}
             className="mt-6 flex h-11 items-center rounded-full bg-neutral-900 px-6 text-sm font-medium text-white transition hover:bg-neutral-800"
           >
             Keep a memory
-          </Link>
+          </button>
         </div>
       )}
 

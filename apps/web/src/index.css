@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
-/* The Memories look: paper, ink, and a journal serif */
+@theme {
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Newsreader", Georgia, serif;
+
+  --color-paper: #fafaf7;
+  --color-ink: #141414;
+  --color-line: #e4e2dc;
+}
+
 :root {
   --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Newsreader", Georgia, serif;
@@ -13,4 +21,9 @@
 body {
   background-color: var(--color-paper);
   color: var(--color-ink);
+}
+
+/* Don't let the page scroll behind an open dialog */
+body:has(dialog[open]) {
+  overflow: hidden;
 }

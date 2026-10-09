@@ -1,8 +1,11 @@
 import { Plus } from "lucide-react";
 import { Link, NavLink } from "react-router";
+import { useKeepMemory } from "../memory/useKeepMemory";
 import { UserMenu } from "./UserMenu";
 
 export function AppHeader() {
+  const { openKeepMemory } = useKeepMemory();
+
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-paper">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
@@ -31,14 +34,16 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            to="/memories/new"
+          <button
+            type="button"
+            onClick={openKeepMemory}
             aria-label="Keep a memory"
+            aria-haspopup="dialog"
             className="flex h-11 items-center gap-2 rounded-full bg-neutral-900 px-4 text-sm font-medium text-white transition hover:bg-neutral-800 sm:px-5"
           >
             <Plus size={16} aria-hidden="true" />
             <span className="hidden sm:inline">Keep a memory</span>
-          </Link>
+          </button>
           <UserMenu />
         </div>
       </div>

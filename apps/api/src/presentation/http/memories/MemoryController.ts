@@ -3,8 +3,12 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import type { CreateMemory } from "../../../application/memory/CreateMemory.js";
 import type { ListJournal } from "../../../application/memory/ListJournal.js";
-import { InvalidPhotoCountError } from "../../../domain/memory/errors.js";
 import type { JournalCursor } from "../../../domain/memory/MemoryRepository.js";
+import type { GetMemory } from "../../../application/memory/GetMemory.js";
+import {
+  InvalidPhotoCountError,
+  MemoryNotFoundError,
+} from "../../../domain/memory/errors.js";
 
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).optional(),
@@ -36,7 +40,32 @@ export class MemoryController {
   constructor(
     private readonly createMemory: CreateMemory,
     private readonly listJournal: ListJournal,
+    private readonly getMemory: GetMemory,
   ) {}
+
+  /** GET /api/memories/:id → 200 | 401 | 404 */
+  get = async (req: Request, res: Response) => {
+    // A malformed id can't match anything, and must never reach the database as a bad UUID
+    const id = z.uuid().safeParse(req.params.id);
+    if (!id.success) {
+      res.status(404).json({ error: "Memory not found" });
+      return;
+    }
+
+    try {
+      const memory = await this.getMemory.execute({
+        memoryId: id.data,
+        viewerId: req.session.userId as string, // guaranteed by requireAuth
+      });
+      res.status(200).json({ memory });
+    } catch (error) {
+      if (error instanceof MemoryNotFoundError) {
+        res.status(404).json({ error: error.message });
+        return;
+      }
+      throw error;
+    }
+  };
 
   /** POST /api/memories (multipart form) → 201 | 400 | 401 */
   create = async (req: Request, res: Response) => {

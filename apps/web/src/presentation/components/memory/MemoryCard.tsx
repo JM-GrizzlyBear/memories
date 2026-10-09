@@ -1,14 +1,9 @@
-import { Globe, Lock, MapPin, Users } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { useState } from "react";
-import type { Memory, Visibility } from "../../../domain/memory";
+import type { Memory } from "../../../domain/memory";
 import { memoryAgo, memoryDateParts, timeAgo } from "../../format/dates";
 import { PhotoMosaic } from "./PhotoMosaic";
-
-const VISIBILITY = {
-  public: { label: "Everyone", Icon: Globe },
-  friends: { label: "Friends", Icon: Users },
-  private: { label: "Only me", Icon: Lock },
-} satisfies Record<Visibility, { label: string; Icon: typeof Globe }>;
+import { VISIBILITY } from "./visibility";
 
 const STORY_PREVIEW_LENGTH = 280;
 
@@ -74,7 +69,7 @@ export function MemoryCard({ memory, currentUserId }: MemoryCardProps) {
           </span>
         </header>
 
-        <PhotoMosaic photos={memory.photos} title={memory.title} />
+        <PhotoMosaic memory={memory} />
 
         <div className="px-4 py-5 sm:px-6 sm:py-6">
           {memory.location && (
