@@ -1,6 +1,7 @@
 import { MEMORY_LIMITS } from "@memories/shared";
 import type { NextFunction, Request, Response } from "express";
 import multer from "multer";
+import { detectPhotoType } from "./photoSignature.js";
 
 class UnsupportedPhotoTypeError extends Error {
   constructor() {
@@ -55,6 +56,19 @@ export function uploadPhotos(req: Request, res: Response, next: NextFunction) {
     if (error) {
       next(error);
       return;
+    }
+
+    // Check what each file really is, and trust that instead of what the browser said
+    const files = (req.files ?? []) as Express.Multer.File[];
+    for (const file of files) {
+      const realType = detectPhotoType(file.buffer);
+      if (!realType) {
+        res.status(400).json({
+          errors: { photos: [`"${file.originalname}" isn't a JPG, PNG, or WebP photo`] },
+        });
+        return;
+      }
+      file.mimetype = realType;
     }
     next();
   });

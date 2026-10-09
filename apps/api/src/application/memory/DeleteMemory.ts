@@ -1,10 +1,8 @@
-import {
-  MemoryNotFoundError,
-  NotMemoryOwnerError,
-} from "../../domain/memory/errors.js";
+import { NotMemoryOwnerError } from "../../domain/memory/errors.js";
 import type { MemoryRepository } from "../../domain/memory/MemoryRepository.js";
-import { canEdit, canView } from "../../domain/memory/visibility.js";
+import { canEdit } from "../../domain/memory/visibility.js";
 import type { PhotoStorage } from "../ports/PhotoStorage.js";
+import type { MemoryAccess } from "./MemoryAccess.js";
 
 export interface DeleteMemoryInput {
   memoryId: string;
@@ -15,11 +13,11 @@ export class DeleteMemory {
   constructor(
     private readonly memories: MemoryRepository,
     private readonly photoStorage: PhotoStorage,
+    private readonly access: MemoryAccess,
   ) {}
 
   async execute({ memoryId, viewerId }: DeleteMemoryInput) {
-    const memory = await this.memories.findById(memoryId);
-    if (!memory || !canView(memory, viewerId)) throw new MemoryNotFoundError();
+    const memory = await this.access.findViewable(memoryId, viewerId);
     if (!canEdit(memory, viewerId)) throw new NotMemoryOwnerError();
 
     // Remember the files before the rows are gone

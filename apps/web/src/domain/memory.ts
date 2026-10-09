@@ -26,5 +26,8 @@ export interface Memory {
   photos: MemoryPhoto[];
   createdAt: string;
   updatedAt: string;
-  author?: MemoryAuthor; // included in the journal feed
+  author?: MemoryAuthor;
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
 }

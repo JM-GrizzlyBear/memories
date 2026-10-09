@@ -1,6 +1,4 @@
-import { MemoryNotFoundError } from "../../domain/memory/errors.js";
-import type { MemoryRepository } from "../../domain/memory/MemoryRepository.js";
-import { canView } from "../../domain/memory/visibility.js";
+import type { MemoryAccess } from "./MemoryAccess.js";
 
 export interface GetMemoryInput {
   memoryId: string;
@@ -8,17 +6,9 @@ export interface GetMemoryInput {
 }
 
 export class GetMemory {
-  constructor(private readonly memories: MemoryRepository) {}
+  constructor(private readonly access: MemoryAccess) {}
 
-  async execute({ memoryId, viewerId }: GetMemoryInput) {
-    const memory = await this.memories.findById(memoryId);
-
-    // "Doesn't exist" and "not allowed" look identical,
-    // so nobody can discover private memories by guessing ids
-    if (!memory || !canView(memory, viewerId)) {
-      throw new MemoryNotFoundError();
-    }
-
-    return memory;
+  execute({ memoryId, viewerId }: GetMemoryInput) {
+    return this.access.findViewable(memoryId, viewerId);
   }
 }
