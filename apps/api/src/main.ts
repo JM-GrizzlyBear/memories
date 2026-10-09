@@ -29,7 +29,10 @@ import { PostgresLikeRepository } from "./infrastructure/database/PostgresLikeRe
 import { PostgresMemoryRepository } from "./infrastructure/database/PostgresMemoryRepository.js";
 import { PostgresUserRepository } from "./infrastructure/database/PostgresUserRepository.js";
 import { BcryptPasswordHasher } from "./infrastructure/security/BcryptPasswordHasher.js";
-import { createPhotoStorage } from "./infrastructure/storage/createPhotoStorage.js";
+import {
+  createPhotoStorage,
+  photoStorageKind,
+} from "./infrastructure/storage/createPhotoStorage.js";
 import { createApp } from "./presentation/http/app.js";
 import { AuthController } from "./presentation/http/auth/AuthController.js";
 import { createAuthRouter } from "./presentation/http/auth/authRoutes.js";
@@ -61,9 +64,16 @@ console.log("Connected to database");
 // Infrastructure
 const passwordHasher = new BcryptPasswordHasher();
 const photoStorage = createPhotoStorage(process.env, uploadsDir);
-console.log(
-  `Photos are stored in ${process.env.PHOTO_STORAGE === "s3" ? "the cloud bucket" : uploadsDir}`,
-);
+if (photoStorageKind(process.env) === "cloudinary") {
+  console.log("Photos are stored in Cloudinary");
+} else {
+  console.log(`Photos are stored in ${uploadsDir}`);
+  if (isProduction) {
+    console.warn(
+      "Warning: photos are saved on this server's disk and are lost on every redeploy. Set PHOTO_STORAGE=cloudinary.",
+    );
+  }
+}
 const userRepository = new PostgresUserRepository(pool);
 const memoryRepository = new PostgresMemoryRepository(pool);
 const friendshipRepository = new PostgresFriendshipRepository(pool);
