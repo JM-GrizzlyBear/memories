@@ -24,3 +24,10 @@ export class UserNotFoundError extends Error {
     this.name = "UserNotFoundError";
   }
 }
+
+export class IncorrectPasswordError extends Error {
+  constructor() {
+    super("Current password is incorrect");
+    this.name = "IncorrectPasswordError";
+  }
+}

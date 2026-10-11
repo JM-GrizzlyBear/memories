@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { Settings } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { useJournal } from "../../application/memory/useJournal";
 import { useProfile } from "../../application/user/useProfile";
@@ -110,7 +111,8 @@ export function ProfilePage() {
       if (!current) return current;
       const wasFriends = current.friendship === "friends";
       const isFriends = friendship === "friends";
-      const change = isFriends && !wasFriends ? 1 : !isFriends && wasFriends ? -1 : 0;
+      const change =
+        isFriends && !wasFriends ? 1 : !isFriends && wasFriends ? -1 : 0;
       return {
         ...current,
         friendship,
@@ -123,35 +125,55 @@ export function ProfilePage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-10 sm:px-6">
-      <section className="flex flex-wrap items-center gap-5 border-b border-ink pb-6">
-        <Avatar user={profile} size="lg" />
-        <div className="min-w-0 flex-1">
-          <h1 className="font-serif text-4xl leading-tight tracking-tight sm:text-5xl">
-            {profile.firstName} {profile.lastName}
-          </h1>
-          <p className="mt-1 text-neutral-500">
-            @{profile.username} · keeping memories since{" "}
-            {monthYear(profile.joinedAt)}
-          </p>
-          <p className="mt-1 text-sm">
-            <span className="font-semibold tabular-nums">
-              {profile.friendCount}
-            </span>{" "}
-            {profile.friendship === "self" ? (
-              <Link to="/friends" className="underline underline-offset-4">
-                {friendLabel}
-              </Link>
-            ) : (
-              friendLabel
-            )}
-          </p>
+      <section className="flex flex-col gap-5 border-b border-ink pb-6 sm:flex-row sm:items-center">
+        {/* Photo and name side by side; on phones the buttons get their own row below */}
+        <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
+          <Avatar user={profile} size="lg" />
+          <div className="min-w-0">
+            <h1 className="font-serif text-3xl leading-tight tracking-tight break-words sm:text-5xl">
+              {profile.firstName} {profile.lastName}
+            </h1>
+            <p className="mt-1 text-sm text-neutral-500 sm:text-base">
+              @{profile.username}
+              <span className="hidden sm:inline">
+                {" "}
+                · keeping memories since {monthYear(profile.joinedAt)}
+              </span>
+            </p>
+            <p className="mt-0.5 text-sm text-neutral-500 sm:hidden">
+              Keeping memories since {monthYear(profile.joinedAt)}
+            </p>
+            <p className="mt-1 text-sm">
+              <span className="font-semibold tabular-nums">
+                {profile.friendCount}
+              </span>{" "}
+              {profile.friendship === "self" ? (
+                <Link to="/friends" className="underline underline-offset-4">
+                  {friendLabel}
+                </Link>
+              ) : (
+                friendLabel
+              )}
+            </p>
+          </div>
         </div>
-        <FriendshipActions
-          key={`${profile.id}-${profile.friendship}`}
-          person={profile}
-          status={profile.friendship}
-          onChange={handleFriendshipChange}
-        />
+
+        {profile.friendship === "self" ? (
+          <Link
+            to="/settings"
+            className="flex h-10 w-fit items-center gap-2 rounded-full border border-neutral-900 px-4 text-sm font-medium transition hover:bg-neutral-100"
+          >
+            <Settings size={16} aria-hidden="true" />
+            Edit profile
+          </Link>
+        ) : (
+          <FriendshipActions
+            key={`${profile.id}-${profile.friendship}`}
+            person={profile}
+            status={profile.friendship}
+            onChange={handleFriendshipChange}
+          />
+        )}
       </section>
 
       <ProfileMemories

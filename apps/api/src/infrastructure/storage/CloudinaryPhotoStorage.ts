@@ -1,6 +1,7 @@
 import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 import { randomUUID } from "node:crypto";
 import type {
+  PhotoPurpose,
   PhotoStorage,
   PhotoUpload,
   StoredPhoto,
@@ -50,19 +51,25 @@ export class CloudinaryPhotoStorage implements PhotoStorage {
     this.folder = config.folder ?? "memories";
   }
 
-  async save(photo: PhotoUpload): Promise<StoredPhoto> {
+  async save(
+    photo: PhotoUpload,
+    purpose: PhotoPurpose = "memory",
+  ): Promise<StoredPhoto> {
     if (!ALLOWED_TYPES.has(photo.mimeType)) {
       throw new Error(`Unsupported photo type: ${photo.mimeType}`);
     }
 
+    // Profile photos get their own subfolder, so they're easy to find in the dashboard
+    const folder =
+      purpose === "profile" ? `${this.folder}/profiles` : this.folder;
     // A random name: users can't guess other photos, and two uploads never collide
-    const publicId = `${this.folder}/${randomUUID()}`;
+    const publicId = `${folder}/${randomUUID()}`;
 
     const uploaded = await new Promise<UploadApiResponse>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
           public_id: publicId,
-          asset_folder: this.folder, // shows the photos in this folder in the dashboard
+          asset_folder: folder, // shows the photos in this folder in the dashboard
           resource_type: "image",
           allowed_formats: ["jpg", "png", "webp"],
           overwrite: false,
@@ -79,17 +86,19 @@ export class CloudinaryPhotoStorage implements PhotoStorage {
     });
 
     // The link the browser loads:
-    // - at most 2000px wide (phones don't download huge originals)
+    // - memory photos: at most 2000px wide (phones don't download huge originals)
+    // - profile photos: a 400×400 square, centred on the face
     // - best format and quality for each browser (f_auto, q_auto)
     // - resized copies leave out hidden data such as GPS location
+    const size =
+      purpose === "profile"
+        ? { width: 400, height: 400, crop: "fill", gravity: "face" }
+        : { width: 2000, crop: "limit" };
     const url = cloudinary.url(uploaded.public_id, {
       secure: true,
       version: uploaded.version,
       urlAnalytics: false, // a clean link, without Cloudinary's tracking parameter
-      transformation: [
-        { width: 2000, crop: "limit" },
-        { fetch_format: "auto", quality: "auto" },
-      ],
+      transformation: [size, { fetch_format: "auto", quality: "auto" }],
     });
 
     return { storageKey: uploaded.public_id, url };

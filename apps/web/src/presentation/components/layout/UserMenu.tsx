@@ -1,7 +1,8 @@
-import { LogOut, UserRound } from "lucide-react";
+import { LogOut, Settings, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useAuth } from "../../../application/auth/useAuth";
+import { Avatar } from "../user/Avatar";
 
 export function UserMenu() {
   const { user, logout } = useAuth();
@@ -50,9 +51,6 @@ export function UserMenu() {
 
   if (!user) return null;
 
-  const initials =
-    `${user.firstName[0] ?? ""}${user.lastName[0] ?? ""}`.toUpperCase();
-
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -63,10 +61,10 @@ export function UserMenu() {
         aria-expanded={isOpen}
         aria-controls="user-menu"
         aria-label="Account menu"
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-300 text-sm font-semibold text-ink transition
+        className="flex h-11 w-11 items-center justify-center rounded-full transition
           hover:ring-2 hover:ring-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900"
       >
-        {initials}
+        <Avatar user={user} size="md" />
       </button>
 
       {isOpen && (
@@ -94,6 +92,17 @@ export function UserMenu() {
           >
             <UserRound size={16} aria-hidden="true" />
             Your profile
+          </Link>
+
+          <Link
+            to="/settings"
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+            className="flex min-h-11 w-full items-center gap-2.5 rounded px-3 text-left text-sm text-ink transition
+              hover:bg-neutral-100 focus-visible:bg-neutral-100 focus-visible:outline-none"
+          >
+            <Settings size={16} aria-hidden="true" />
+            Settings
           </Link>
 
           <button

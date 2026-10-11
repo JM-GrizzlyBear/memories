@@ -8,6 +8,7 @@ import { LoginPage } from "./presentation/pages/LoginPage";
 import { MemoryViewerPage } from "./presentation/pages/MemoryViewerPage";
 import { ProfilePage } from "./presentation/pages/ProfilePage";
 import { RegisterPage } from "./presentation/pages/RegisterPage";
+import { SettingsPage } from "./presentation/pages/SettingsPage";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/" element={<JournalPage />} />
           <Route path="/friends" element={<FriendsPage />} />
           <Route path="/u/:username" element={<ProfilePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
 
         <Route path="/memories/new" element={<Navigate to="/" replace />} />
