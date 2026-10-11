@@ -15,6 +15,15 @@ export class ApiError extends Error {
   }
 }
 
+// The body as JSON, or {} when there's none (or it isn't JSON, like an HTML error page)
+async function readJson(response: Response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
 export async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -32,7 +41,7 @@ export async function request<T>(
 
   if (response.status === 204) return undefined as T;
 
-  const data = await response.json().catch(() => ({}));
+  const data = await readJson(response);
 
   if (!response.ok) {
     throw new ApiError(

@@ -2,11 +2,11 @@ import { createMemorySchema, MEMORY_LIMITS } from "@memories/shared";
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { z } from "zod";
 import type { Memory, Visibility } from "../../../domain/memory";
-import { ApiError } from "../../../infrastructure/api/http";
 import {
-  createMemory,
-  updateMemory,
-} from "../../../infrastructure/api/memoryApi";
+  useCreateMemory,
+  useUpdateMemory,
+} from "../../../application/memory/useMemoryMutations";
+import { ApiError } from "../../../infrastructure/api/http";
 import { Button } from "../ui/Button";
 import { DateInput } from "../ui/DateInput";
 import { Input } from "../ui/Input";
@@ -113,7 +113,14 @@ export function KeepMemoryForm({
   );
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const creation = useCreateMemory();
+  const update = useUpdateMemory();
+  const isSubmitting = creation.isPending || update.isPending;
+
+  // The dialog needs to know, so it never closes in the middle of an upload
+  useEffect(() => {
+    onSubmittingChange(isSubmitting);
+  }, [isSubmitting, onSubmittingChange]);
 
   // "Dirty" = different from how the form started (empty, or the saved memory)
   const [initialSnapshot] = useState(() =>
@@ -135,11 +142,6 @@ export function KeepMemoryForm({
     setForm((current) => ({ ...current, [name]: value }));
   }
 
-  function setSubmitting(value: boolean) {
-    setIsSubmitting(value);
-    onSubmittingChange(value);
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFieldErrors({});
@@ -151,19 +153,21 @@ export function KeepMemoryForm({
       return;
     }
 
-    setSubmitting(true);
     try {
       const saved = isEditing
-        ? await updateMemory(memory.id, {
-            ...form,
-            visibility,
-            photos: photos.map((photo) =>
-              photo.kind === "existing"
-                ? { kind: "existing", id: photo.id }
-                : { kind: "new", file: photo.file },
-            ),
+        ? await update.mutateAsync({
+            id: memory.id,
+            input: {
+              ...form,
+              visibility,
+              photos: photos.map((photo) =>
+                photo.kind === "existing"
+                  ? { kind: "existing", id: photo.id }
+                  : { kind: "new", file: photo.file },
+              ),
+            },
           })
-        : await createMemory({
+        : await creation.mutateAsync({
             ...form,
             visibility,
             photos: photos.flatMap((photo) =>
@@ -186,8 +190,6 @@ export function KeepMemoryForm({
       } else {
         setFormError("Something went wrong. Please try again.");
       }
-    } finally {
-      setSubmitting(false);
     }
   }
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { useDeleteMemory } from "../../../application/memory/useMemoryMutations";
 import type { Memory } from "../../../domain/memory";
 import { ApiError } from "../../../infrastructure/api/http";
-import { deleteMemory } from "../../../infrastructure/api/memoryApi";
 
 interface DeleteMemoryDialogProps {
   memory: Memory | null; // a memory = open
@@ -15,7 +15,8 @@ export function DeleteMemoryDialog({
   onDeleted,
 }: DeleteMemoryDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const deletion = useDeleteMemory();
+  const isDeleting = deletion.isPending;
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,10 +39,9 @@ export function DeleteMemoryDialog({
 
   async function handleDelete() {
     if (!memory) return;
-    setIsDeleting(true);
     setError(null);
     try {
-      await deleteMemory(memory.id);
+      await deletion.mutateAsync(memory);
       onDeleted(memory);
     } catch (caught) {
       setError(
@@ -49,8 +49,6 @@ export function DeleteMemoryDialog({
           ? caught.message
           : "Something went wrong. Please try again.",
       );
-    } finally {
-      setIsDeleting(false);
     }
   }
 

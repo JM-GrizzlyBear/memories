@@ -1,14 +1,12 @@
-import { useCallback } from "react";
 import { Settings } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { useJournal } from "../../application/memory/useJournal";
 import { useProfile } from "../../application/user/useProfile";
 import type { FriendshipStatus, Profile } from "../../domain/friendship";
-import type { Memory } from "../../domain/memory";
 import { FriendshipActions } from "../components/friendship/FriendshipActions";
 import { MemoryList } from "../components/memory/MemoryList";
 import { Notice } from "../components/memory/Notice";
-import { useSyncWithMemoryDialogs } from "../components/memory/useSyncWithMemoryDialogs";
+import { useKeepMemory } from "../components/memory/useKeepMemory";
 import { Avatar } from "../components/user/Avatar";
 import { monthYear } from "../format/dates";
 
@@ -24,14 +22,10 @@ function emptyText(friendship: FriendshipStatus, firstName: string) {
   }
 }
 
-// The memories part. Its key changes with the person and the friendship, so it reloads then.
+// The memories part. Friend actions refresh it by themselves (see useFriendship).
 function ProfileMemories({ profile }: { profile: Profile }) {
   const journal = useJournal(profile.id);
-  const belongsHere = useCallback(
-    (memory: Memory) => memory.userId === profile.id,
-    [profile.id],
-  );
-  const notice = useSyncWithMemoryDialogs(journal, belongsHere);
+  const { notice } = useKeepMemory();
 
   return (
     <>
@@ -55,7 +49,7 @@ function ProfileMemories({ profile }: { profile: Profile }) {
 
 export function ProfilePage() {
   const { username = "" } = useParams();
-  const { profile, status, setProfile, retry } = useProfile(username);
+  const { profile, status, retry } = useProfile(username);
 
   if (status === "loading" || (status === "ready" && !profile)) {
     return (
@@ -105,22 +99,6 @@ export function ProfilePage() {
     );
   }
 
-  // Becoming (or no longer being) friends changes the count and which memories show
-  function handleFriendshipChange(friendship: FriendshipStatus) {
-    setProfile((current) => {
-      if (!current) return current;
-      const wasFriends = current.friendship === "friends";
-      const isFriends = friendship === "friends";
-      const change =
-        isFriends && !wasFriends ? 1 : !isFriends && wasFriends ? -1 : 0;
-      return {
-        ...current,
-        friendship,
-        friendCount: current.friendCount + change,
-      };
-    });
-  }
-
   const friendLabel = profile.friendCount === 1 ? "friend" : "friends";
 
   return (
@@ -168,19 +146,15 @@ export function ProfilePage() {
           </Link>
         ) : (
           <FriendshipActions
+            // The profile reloads after a friend action; a new status starts the buttons fresh
             key={`${profile.id}-${profile.friendship}`}
             person={profile}
             status={profile.friendship}
-            onChange={handleFriendshipChange}
           />
         )}
       </section>
 
-      <ProfileMemories
-        // Different person, or friendship changed: load the memories again
-        key={`${profile.id}-${profile.friendship === "friends"}`}
-        profile={profile}
-      />
+      <ProfileMemories key={profile.id} profile={profile} />
     </main>
   );
 }

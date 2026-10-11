@@ -28,7 +28,11 @@ export class SetProfilePhoto {
       });
     } catch (error) {
       // Couldn't save it on the account: don't leave the new file behind
-      await this.photoStorage.delete(stored.storageKey).catch(() => {});
+      try {
+        await this.photoStorage.delete(stored.storageKey);
+      } catch {
+        // The original error matters more; a leftover file is harmless
+      }
       throw error;
     }
 

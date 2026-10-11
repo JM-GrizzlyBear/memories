@@ -55,6 +55,7 @@ export function KeepMemoryDialog({
 
   function handleSaved(saved: Memory) {
     setIsDirty(false);
+    setIsSubmitting(false); // the form closes now, before it could report it's done
     onSaved(saved);
   }
 

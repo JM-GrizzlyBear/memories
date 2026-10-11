@@ -1,8 +1,7 @@
 import { updateProfileSchema } from "@memories/shared";
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { useAuth } from "../../../application/auth/useAuth";
+import { useUpdateProfile } from "../../../application/account/useAccountMutations";
 import type { User } from "../../../domain/user";
-import { updateProfile } from "../../../infrastructure/api/accountApi";
 import { apiErrorMessages, firstErrors } from "../../format/fieldErrors";
 import { Button } from "../ui/Button";
 import { DateInput } from "../ui/DateInput";
@@ -47,12 +46,11 @@ function validate(form: ProfileForm): FieldErrors {
 }
 
 export function ProfileDetailsSection({ user }: { user: User }) {
-  const { setUser } = useAuth();
+  const saveProfile = useUpdateProfile();
   const [form, setForm] = useState(() => formFromUser(user));
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
 
   const saved = formFromUser(user);
   const isChanged = (Object.keys(form) as (keyof ProfileForm)[]).some(
@@ -79,10 +77,9 @@ export function ProfileDetailsSection({ user }: { user: User }) {
       return;
     }
 
-    setIsSaving(true);
     try {
-      const updated = await updateProfile(form);
-      setUser(updated); // the header and menu show the new name right away
+      // The header and menu show the new name right away
+      const updated = await saveProfile.mutateAsync(form);
       setForm(formFromUser(updated));
       setSuccess("Profile saved.");
     } catch (caught) {
@@ -90,8 +87,6 @@ export function ProfileDetailsSection({ user }: { user: User }) {
         apiErrorMessages<keyof ProfileForm>(caught);
       setFieldErrors(fields);
       setFormError(message);
-    } finally {
-      setIsSaving(false);
     }
   }
 
@@ -170,7 +165,7 @@ export function ProfileDetailsSection({ user }: { user: User }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Button
             type="submit"
-            isLoading={isSaving}
+            isLoading={saveProfile.isPending}
             disabled={!isChanged}
             className="sm:w-auto sm:px-6"
           >

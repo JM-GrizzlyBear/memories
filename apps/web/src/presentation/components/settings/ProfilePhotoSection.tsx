@@ -1,11 +1,11 @@
 import { PROFILE_PHOTO_LIMITS } from "@memories/shared";
 import { Camera, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { useAuth } from "../../../application/auth/useAuth";
 import {
-  removeProfilePhoto,
-  uploadProfilePhoto,
-} from "../../../infrastructure/api/accountApi";
+  useRemoveProfilePhoto,
+  useUploadProfilePhoto,
+} from "../../../application/account/useAccountMutations";
+import { useAuth } from "../../../application/auth/useAuth";
 import { apiErrorMessages } from "../../format/fieldErrors";
 import { Avatar } from "../user/Avatar";
 import { FormError, FormSuccess } from "./FormMessages";
@@ -24,10 +24,16 @@ interface PickedPhoto {
 const maxMb = PROFILE_PHOTO_LIMITS.maxBytes / (1024 * 1024);
 
 export function ProfilePhotoSection() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
+  const upload = useUploadProfilePhoto();
+  const removal = useRemoveProfilePhoto();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [picked, setPicked] = useState<PickedPhoto | null>(null);
-  const [busy, setBusy] = useState<"saving" | "removing" | null>(null);
+  const busy = upload.isPending
+    ? "saving"
+    : removal.isPending
+      ? "removing"
+      : null;
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -63,31 +69,25 @@ export function ProfilePhotoSection() {
 
   async function handleSave() {
     if (!picked) return;
-    setBusy("saving");
     setError(null);
     try {
-      setUser(await uploadProfilePhoto(picked.file));
+      await upload.mutateAsync(picked.file); // the header shows it right away
       setPicked(null);
       setSuccess("Profile photo saved.");
     } catch (caught) {
       const { fields, form } = apiErrorMessages<"photo">(caught);
       setError(fields.photo ?? form);
-    } finally {
-      setBusy(null);
     }
   }
 
   async function handleRemove() {
-    setBusy("removing");
     setError(null);
     setSuccess(null);
     try {
-      setUser(await removeProfilePhoto());
+      await removal.mutateAsync();
       setSuccess("Profile photo removed.");
     } catch (caught) {
       setError(apiErrorMessages(caught).form);
-    } finally {
-      setBusy(null);
     }
   }
 

@@ -1,6 +1,6 @@
 import { BookOpen, Plus, Users } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link, NavLink, useLocation } from "react-router";
+import { Link, NavLink } from "react-router";
 import { useIncomingRequestCount } from "../../../application/friendship/useIncomingRequestCount";
 import { useKeepMemory } from "../memory/useKeepMemory";
 import { UserMenu } from "./UserMenu";
@@ -45,10 +45,7 @@ function HeaderLink({
 
 export function AppHeader() {
   const { openKeepMemory } = useKeepMemory();
-  const location = useLocation();
-  const requestCount = useIncomingRequestCount(
-    location.pathname + location.search,
-  );
+  const requestCount = useIncomingRequestCount();
 
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-paper">
