@@ -1,8 +1,10 @@
 import path from "node:path";
 import express, { type RequestHandler, type Router } from "express";
+import { apiNotFound, errorHandler } from "./errorHandler.js";
 
 interface AppDependencies {
   authRouter: Router;
+  accountRouter: Router;
   memoryRouter: Router;
   friendRouter: Router;
   userRouter: Router;
@@ -14,6 +16,7 @@ interface AppDependencies {
 
 export function createApp({
   authRouter,
+  accountRouter,
   memoryRouter,
   friendRouter,
   userRouter,
@@ -43,9 +46,11 @@ export function createApp({
 
   app.use(sessionMiddleware);
   app.use("/api/auth", authRouter);
+  app.use("/api/account", accountRouter);
   app.use("/api/memories", memoryRouter);
   app.use("/api/friends", friendRouter);
   app.use("/api/users", userRouter);
+  app.use("/api", apiNotFound);
 
   if (webDistDir) {
     app.use(express.static(webDistDir));
@@ -57,6 +62,9 @@ export function createApp({
       res.sendFile(path.join(webDistDir, "index.html"));
     });
   }
+
+  // Must be last: catches errors from every route above
+  app.use(errorHandler);
 
   return app;
 }

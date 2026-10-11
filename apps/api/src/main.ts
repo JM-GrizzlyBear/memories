@@ -17,22 +17,29 @@ import { GetMemory } from "./application/memory/GetMemory.js";
 import { ListJournal } from "./application/memory/ListJournal.js";
 import { MemoryAccess } from "./application/memory/MemoryAccess.js";
 import { UpdateMemory } from "./application/memory/UpdateMemory.js";
+import { ChangePassword } from "./application/user/ChangePassword.js";
 import { GetCurrentUser } from "./application/user/GetCurrentUser.js";
 import { GetProfile } from "./application/user/GetProfile.js";
 import { LoginUser } from "./application/user/LoginUser.js";
 import { RegisterUser } from "./application/user/RegisterUser.js";
+import { RemoveProfilePhoto } from "./application/user/RemoveProfilePhoto.js";
 import { SearchUsers } from "./application/user/SearchUsers.js";
+import { SetProfilePhoto } from "./application/user/SetProfilePhoto.js";
+import { UpdateProfile } from "./application/user/UpdateProfile.js";
 import { createPool } from "./infrastructure/database/pool.js";
 import { PostgresCommentRepository } from "./infrastructure/database/PostgresCommentRepository.js";
 import { PostgresFriendshipRepository } from "./infrastructure/database/PostgresFriendshipRepository.js";
 import { PostgresLikeRepository } from "./infrastructure/database/PostgresLikeRepository.js";
 import { PostgresMemoryRepository } from "./infrastructure/database/PostgresMemoryRepository.js";
+import { PostgresSessionStore } from "./infrastructure/database/PostgresSessionStore.js";
 import { PostgresUserRepository } from "./infrastructure/database/PostgresUserRepository.js";
 import { BcryptPasswordHasher } from "./infrastructure/security/BcryptPasswordHasher.js";
 import {
   createPhotoStorage,
   photoStorageKind,
 } from "./infrastructure/storage/createPhotoStorage.js";
+import { AccountController } from "./presentation/http/account/AccountController.js";
+import { createAccountRouter } from "./presentation/http/account/accountRoutes.js";
 import { createApp } from "./presentation/http/app.js";
 import { AuthController } from "./presentation/http/auth/AuthController.js";
 import { createAuthRouter } from "./presentation/http/auth/authRoutes.js";
@@ -79,6 +86,7 @@ const memoryRepository = new PostgresMemoryRepository(pool);
 const friendshipRepository = new PostgresFriendshipRepository(pool);
 const likeRepository = new PostgresLikeRepository(pool);
 const commentRepository = new PostgresCommentRepository(pool);
+const sessionStore = new PostgresSessionStore(pool);
 const memoryAccess = new MemoryAccess(memoryRepository, friendshipRepository);
 
 // Auth
@@ -88,6 +96,15 @@ const authController = new AuthController(
   new GetCurrentUser(userRepository),
 );
 const authRouter = createAuthRouter(authController);
+
+// Your account (Settings page)
+const accountController = new AccountController(
+  new UpdateProfile(userRepository),
+  new ChangePassword(userRepository, passwordHasher, sessionStore),
+  new SetProfilePhoto(userRepository, photoStorage),
+  new RemoveProfilePhoto(userRepository, photoStorage),
+);
+const accountRouter = createAccountRouter(accountController);
 
 // Memories
 const memoryController = new MemoryController(
@@ -134,6 +151,7 @@ const sessionMiddleware = createSessionMiddleware(pool, sessionSecret);
 
 const app = createApp({
   authRouter,
+  accountRouter,
   memoryRouter,
   friendRouter,
   userRouter,

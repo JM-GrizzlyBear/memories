@@ -1,3 +1,4 @@
+import { toSafeUser } from "../../domain/user/User.js";
 import {
   EmailAlreadyTakenError,
   UsernameAlreadyTakenError,
@@ -41,10 +42,8 @@ export class RegisterUser {
       firstName: input.firstName.trim(),
       lastName: input.lastName.trim(),
       birthday: input.birthday,
-      profilePhotoUrl: null,
     });
 
-    const { passwordHash: _, ...safeUser } = user;
-    return safeUser;
+    return toSafeUser(user);
   }
 }
