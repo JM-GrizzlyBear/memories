@@ -1,6 +1,6 @@
 import { changePasswordSchema } from "@memories/shared";
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { changePassword } from "../../../infrastructure/api/accountApi";
+import { useChangePassword } from "../../../application/account/useAccountMutations";
 import { apiErrorMessages, firstErrors } from "../../format/fieldErrors";
 import { Button } from "../ui/Button";
 import { PasswordInput } from "../ui/PasswordInput";
@@ -38,7 +38,7 @@ export function PasswordSection({ username }: { username: string }) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const passwordChange = useChangePassword();
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
@@ -58,9 +58,8 @@ export function PasswordSection({ username }: { username: string }) {
       return;
     }
 
-    setIsSaving(true);
     try {
-      await changePassword(form);
+      await passwordChange.mutateAsync(form);
       setForm(emptyForm);
       setSuccess(
         "Password changed. You're still logged in here, and logged out on your other devices.",
@@ -70,8 +69,6 @@ export function PasswordSection({ username }: { username: string }) {
         apiErrorMessages<keyof PasswordForm>(caught);
       setFieldErrors(fields);
       setFormError(message);
-    } finally {
-      setIsSaving(false);
     }
   }
 
@@ -126,7 +123,7 @@ export function PasswordSection({ username }: { username: string }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Button
             type="submit"
-            isLoading={isSaving}
+            isLoading={passwordChange.isPending}
             className="sm:w-auto sm:px-6"
           >
             Change password

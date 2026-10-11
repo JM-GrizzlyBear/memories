@@ -2,12 +2,11 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { loginSchema } from "@memories/shared";
 import { z } from "zod";
-import { login } from "../../infrastructure/api/authApi";
 import { ApiError } from "../../infrastructure/api/http";
 import { AuthLayout } from "../components/layout/AuthLayout";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
-import { useAuth } from "../../application/auth/useAuth";
+import { useLogin } from "../../application/auth/useAuthMutations";
 import { PasswordInput } from "../components/ui/PasswordInput";
 
 const initialForm = {
@@ -37,11 +36,10 @@ function validate(form: LoginForm): FieldErrors {
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const loginRequest = useLogin();
   const [form, setForm] = useState(initialForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // One handler for every input: the input's `name` decides which field updates
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
@@ -61,10 +59,8 @@ export function LoginPage() {
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      const user = await login(form);
-      setUser(user);
+      await loginRequest.mutateAsync(form); // also remembers who is logged in
       navigate("/", { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
@@ -82,8 +78,6 @@ export function LoginPage() {
       } else {
         setFormError("Something went wrong. Please try again.");
       }
-    } finally {
-      setIsSubmitting(false);
     }
   }
 
@@ -119,7 +113,7 @@ export function LoginPage() {
           error={fieldErrors.password}
         />
 
-        <Button type="submit" isLoading={isSubmitting}>
+        <Button type="submit" isLoading={loginRequest.isPending}>
           Log in
         </Button>
 

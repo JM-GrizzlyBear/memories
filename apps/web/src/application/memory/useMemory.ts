@@ -1,51 +1,32 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { Memory } from "../../domain/memory";
 import { ApiError } from "../../infrastructure/api/http";
 import { getMemory } from "../../infrastructure/api/memoryApi";
+import { queryKeys } from "../query/queryKeys";
 
 type Status = "loading" | "ready" | "not-found" | "error";
 
 // Loads one memory. If the Journal passed it along, it shows right away
 // and is refreshed quietly (likes and comments may have changed since).
 export function useMemory(id: string, initial: Memory | null) {
-  const hasInitial = initial?.id === id;
-  const [memory, setMemory] = useState<Memory | null>(
-    hasInitial ? initial : null,
-  );
-  const [status, setStatus] = useState<Status>(
-    hasInitial ? "ready" : "loading",
-  );
+  const query = useQuery({
+    queryKey: queryKeys.memory(id),
+    queryFn: async () => await getMemory(id),
+    initialData: initial?.id === id ? initial : undefined,
+    initialDataUpdatedAt: 0, // treat the passed-along copy as old, so it's checked right away
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const loaded = await getMemory(id);
-        if (cancelled) return;
-        setMemory(loaded);
-        setStatus("ready");
-      } catch (error) {
-        if (cancelled) return;
-        if (hasInitial) {
-          // Already showing it: a deleted or hidden memory still becomes "not available"
-          if (error instanceof ApiError && error.status === 404) {
-            setStatus("not-found");
-          }
-          return;
-        }
-        setStatus(
-          error instanceof ApiError && error.status === 404
-            ? "not-found"
-            : "error",
-        );
-      }
-    }
-    load();
+  // Deleted, or no longer allowed (unfriended): "not available", even if it was showing
+  const isNotFound =
+    query.error instanceof ApiError && query.error.status === 404;
 
-    return () => {
-      cancelled = true;
-    };
-  }, [id, hasInitial]);
+  const status: Status = isNotFound
+    ? "not-found"
+    : query.data
+      ? "ready"
+      : query.isError
+        ? "error"
+        : "loading";
 
-  return { memory, status, setMemory };
+  return { memory: query.data ?? null, status };
 }

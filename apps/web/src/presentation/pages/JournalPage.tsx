@@ -3,12 +3,10 @@ import { useJournal } from "../../application/memory/useJournal";
 import { MemoryList } from "../components/memory/MemoryList";
 import { Notice } from "../components/memory/Notice";
 import { useKeepMemory } from "../components/memory/useKeepMemory";
-import { useSyncWithMemoryDialogs } from "../components/memory/useSyncWithMemoryDialogs";
 
 export function JournalPage() {
   const journal = useJournal();
-  const { openKeepMemory } = useKeepMemory();
-  const notice = useSyncWithMemoryDialogs(journal);
+  const { openKeepMemory, notice } = useKeepMemory();
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-10 sm:px-6">

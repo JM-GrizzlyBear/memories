@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, MapPin, X } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Link,
   useLocation,
@@ -33,9 +33,11 @@ export function MemoryViewerPage() {
   const openAtComments = location.hash === "#comments";
   const swipeStartX = useRef<number | null>(null);
 
-  const photos = memory
-    ? [...memory.photos].sort((a, b) => a.position - b.position)
-    : [];
+  const photos = useMemo(
+    () =>
+      memory ? [...memory.photos].sort((a, b) => a.position - b.position) : [],
+    [memory],
+  );
   const total = photos.length;
   const requested = Number(searchParams.get("photo")) || 1;
   const index = Math.min(Math.max(requested, 1), Math.max(total, 1)) - 1;
@@ -285,11 +287,7 @@ export function MemoryViewerPage() {
         </div>
 
         <div className="mt-2 -ml-3">
-          <LikeButton
-            // Fresh numbers from the server start the button over
-            key={`${memory.id}-${memory.likeCount}-${memory.likedByMe}`}
-            memory={memory}
-          />
+          <LikeButton memory={memory} />
         </div>
 
         <CommentsSection

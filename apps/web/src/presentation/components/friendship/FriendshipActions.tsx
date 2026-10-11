@@ -1,10 +1,7 @@
 import { Check, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { useFriendship } from "../../../application/friendship/useFriendship";
-import type {
-  FriendshipStatus,
-  UserSummary,
-} from "../../../domain/friendship";
+import type { FriendshipStatus, UserSummary } from "../../../domain/friendship";
 import { UnfriendDialog } from "./UnfriendDialog";
 
 const primary =
@@ -15,7 +12,6 @@ const secondary =
 interface FriendshipActionsProps {
   person: UserSummary;
   status: FriendshipStatus;
-  onChange?: (status: FriendshipStatus) => void;
 }
 
 // The right buttons for how I relate to this person:
@@ -23,9 +19,8 @@ interface FriendshipActionsProps {
 export function FriendshipActions({
   person,
   status: initial,
-  onChange,
 }: FriendshipActionsProps) {
-  const friendship = useFriendship(person.id, initial, onChange);
+  const friendship = useFriendship(person.id, initial);
   const [confirmingUnfriend, setConfirmingUnfriend] = useState(false);
   const name = `${person.firstName} ${person.lastName}`;
   const { status, isWorking } = friendship;

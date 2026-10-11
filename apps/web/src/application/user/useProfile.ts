@@ -1,64 +1,34 @@
-import { useCallback, useEffect, useState } from "react";
-import type { Profile } from "../../domain/friendship";
+import { useQuery } from "@tanstack/react-query";
 import { ApiError } from "../../infrastructure/api/http";
 import { getProfile } from "../../infrastructure/api/userApi";
+import { queryKeys } from "../query/queryKeys";
 
 type Status = "loading" | "ready" | "not-found" | "error";
 
-interface Loaded {
-  key: string; // which username + attempt this answer belongs to
-  profile: Profile | null;
-  status: Exclude<Status, "loading">;
-}
-
+// Someone's profile. Friend actions refresh it by themselves (see useFriendship).
 export function useProfile(username: string) {
-  const [attempt, setAttempt] = useState(0);
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const key = `${username}#${attempt}`;
+  const query = useQuery({
+    queryKey: queryKeys.profile(username),
+    queryFn: async () => await getProfile(username),
+    // The friendship can change from the other side (they accept or unfriend),
+    // so look again whenever the profile is opened or I come back to the tab
+    staleTime: 0,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
+  const isNotFound =
+    query.error instanceof ApiError && query.error.status === 404;
 
-    getProfile(username)
-      .then((profile) => {
-        if (!cancelled) setLoaded({ key, profile, status: "ready" });
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setLoaded({
-          key,
-          profile: null,
-          status:
-            error instanceof ApiError && error.status === 404
-              ? "not-found"
-              : "error",
-        });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [username, key]);
-
-  // An answer for another username (or an older attempt) means we're still loading
-  const isCurrent = loaded?.key === key;
-  const status: Status = isCurrent ? loaded.status : "loading";
-  const profile = isCurrent ? loaded.profile : null;
-
-  // Update the shown profile, e.g. after becoming friends
-  const setProfile = useCallback(
-    (update: (current: Profile | null) => Profile | null) => {
-      setLoaded((current) =>
-        current ? { ...current, profile: update(current.profile) } : current,
-      );
-    },
-    [],
-  );
+  const status: Status = isNotFound
+    ? "not-found"
+    : query.data
+      ? "ready"
+      : query.isError
+        ? "error"
+        : "loading";
 
   return {
-    profile,
+    profile: query.data ?? null,
     status,
-    setProfile,
-    retry: () => setAttempt((current) => current + 1),
+    retry: () => void query.refetch(),
   };
 }

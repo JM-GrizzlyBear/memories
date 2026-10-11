@@ -1,15 +1,23 @@
 import { useCallback, useState, type ReactNode } from "react";
+import { useLocation } from "react-router";
 import type { Memory } from "../../../domain/memory";
 import { DeleteMemoryDialog } from "./DeleteMemoryDialog";
-import { KeepMemoryContext, type SavedMemory } from "./KeepMemoryContext";
+import { KeepMemoryContext } from "./KeepMemoryContext";
 import { KeepMemoryDialog } from "./KeepMemoryDialog";
 
+interface Notice {
+  text: string;
+  path: string; // the page it belongs to
+}
+
+// The Keep / Edit / Delete dialogs, available on every logged-in page.
+// The lists update themselves (the cache changes); this only opens dialogs and says what happened.
 export function KeepMemoryProvider({ children }: { children: ReactNode }) {
+  const location = useLocation();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState<Memory | null>(null);
   const [deleting, setDeleting] = useState<Memory | null>(null);
-  const [lastSaved, setLastSaved] = useState<SavedMemory | null>(null);
-  const [lastDeleted, setLastDeleted] = useState<Memory | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   const openKeepMemory = useCallback(() => {
     setEditing(null);
@@ -25,18 +33,24 @@ export function KeepMemoryProvider({ children }: { children: ReactNode }) {
     (memory: Memory) => setDeleting(memory),
     [],
   );
-  const clearLastSaved = useCallback(() => setLastSaved(null), []);
-  const clearLastDeleted = useCallback(() => setLastDeleted(null), []);
+
+  function say(text: string) {
+    setNotice({ text, path: location.pathname });
+  }
 
   function handleSaved(memory: Memory) {
-    // The API sends the memory back with its author and counts, ready to show
-    setLastSaved({ memory, mode: editing ? "updated" : "created" });
+    if (editing) {
+      say(`"${memory.title}" was updated.`);
+    } else {
+      say(`"${memory.title}" is now in your journal.`);
+      window.scrollTo({ top: 0, behavior: "smooth" }); // new memories are at the top
+    }
     setIsFormOpen(false);
     setEditing(null);
   }
 
   function handleDeleted(memory: Memory) {
-    setLastDeleted(memory);
+    say(`"${memory.title}" was deleted.`);
     setDeleting(null);
   }
 
@@ -46,10 +60,8 @@ export function KeepMemoryProvider({ children }: { children: ReactNode }) {
         openKeepMemory,
         openEditMemory,
         openDeleteMemory,
-        lastSaved,
-        clearLastSaved,
-        lastDeleted,
-        clearLastDeleted,
+        // Moving to another page leaves the notice behind
+        notice: notice?.path === location.pathname ? notice.text : null,
       }}
     >
       {children}
