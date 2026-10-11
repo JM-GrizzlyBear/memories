@@ -13,10 +13,12 @@ import {
   NotMemoryOwnerError,
 } from "../../../domain/memory/errors.js";
 import type { JournalCursor } from "../../../domain/memory/MemoryRepository.js";
+import { parseId } from "../parseId.js";
 
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).optional(),
   cursor: z.string().optional(),
+  authorId: z.uuid().optional(), // only this person's memories (their profile)
 });
 
 const cursorSchema = z.object({
@@ -48,12 +50,6 @@ function decodeCursor(value: string): JournalCursor | null {
   } catch {
     return null;
   }
-}
-
-// A malformed id can't match anything, and must never reach the database as a bad UUID
-function parseId(value: unknown) {
-  const parsed = z.uuid().safeParse(value);
-  return parsed.success ? parsed.data : null;
 }
 
 // The photo order arrives as a JSON string inside the multipart form
@@ -123,7 +119,7 @@ export class MemoryController {
     }
   };
 
-  /** GET /api/memories?limit=10&cursor=... → 200 | 400 | 401 */
+  /** GET /api/memories?limit=10&cursor=...&authorId=... → 200 | 400 | 401 */
   list = async (req: Request, res: Response) => {
     const query = listQuerySchema.safeParse(req.query);
     if (!query.success) {
@@ -142,6 +138,7 @@ export class MemoryController {
 
     const page = await this.listJournal.execute({
       viewerId: req.session.userId as string,
+      authorId: query.data.authorId ?? null,
       limit: query.data.limit,
       after,
     });

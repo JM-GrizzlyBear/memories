@@ -1,7 +1,10 @@
-import { MapPin } from "lucide-react";
+import { MapPin, MessageCircle } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router";
 import type { Memory } from "../../../domain/memory";
 import { memoryAgo, memoryDateParts, timeAgo } from "../../format/dates";
+import { Avatar } from "../user/Avatar";
+import { LikeButton } from "./LikeButton";
 import { MemoryActionsMenu } from "./MemoryActionsMenu";
 import { PhotoMosaic } from "./PhotoMosaic";
 import { VISIBILITY } from "./visibility";
@@ -24,9 +27,6 @@ export function MemoryCard({ memory, currentUserId }: MemoryCardProps) {
     : author
       ? `${author.firstName} ${author.lastName}`
       : "Someone";
-  const initials = author
-    ? `${author.firstName[0] ?? ""}${author.lastName[0] ?? ""}`.toUpperCase()
-    : "?";
   const { label: visibilityLabel, Icon: VisibilityIcon } =
     VISIBILITY[memory.visibility];
   const wasEdited = memory.updatedAt !== memory.createdAt;
@@ -53,14 +53,24 @@ export function MemoryCard({ memory, currentUserId }: MemoryCardProps) {
 
       <div className="overflow-hidden rounded-md border border-line bg-white">
         <header className="flex items-center gap-3 py-3 pl-4 pr-2 sm:pl-5">
-          <span
-            aria-hidden="true"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-300 text-xs font-semibold"
-          >
-            {initials}
-          </span>
+          {author ? (
+            <Avatar user={author} />
+          ) : (
+            <span className="h-9 w-9 shrink-0 rounded-full bg-neutral-300" />
+          )}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{authorName}</p>
+            <p className="truncate text-sm font-semibold">
+              {author ? (
+                <Link
+                  to={`/u/${author.username}`}
+                  className="hover:underline hover:underline-offset-4"
+                >
+                  {authorName}
+                </Link>
+              ) : (
+                authorName
+              )}
+            </p>
             <p className="truncate text-xs text-neutral-500">
               {memoryAgo(memory.memoryDate)} · kept {timeAgo(memory.createdAt)}
               {wasEdited && " · edited"}
@@ -103,6 +113,24 @@ export function MemoryCard({ memory, currentUserId }: MemoryCardProps) {
             </button>
           )}
         </div>
+
+        <footer className="flex items-center gap-1 border-t border-line px-2 py-1 sm:px-3">
+          <LikeButton key={memory.id} memory={memory} />
+          <Link
+            to={`/memories/${memory.id}#comments`}
+            state={{ memory }}
+            aria-label={`Comments on "${memory.title}"`}
+            className="flex h-11 items-center gap-2 rounded-full px-3 text-sm transition hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-neutral-900"
+          >
+            <MessageCircle size={20} aria-hidden="true" />
+            <span className="tabular-nums">
+              {memory.commentCount}
+              <span className="sr-only">
+                {memory.commentCount === 1 ? " comment" : " comments"}
+              </span>
+            </span>
+          </Link>
+        </footer>
       </div>
     </article>
   );

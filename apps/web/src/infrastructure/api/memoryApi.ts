@@ -52,10 +52,14 @@ export async function createMemory(input: CreateMemoryInput): Promise<Memory> {
 
 export async function listJournal(
   cursor?: string | null,
+  authorId?: string | null, // only this person's memories (their profile)
 ): Promise<JournalPage> {
   const params = new URLSearchParams({ limit: "10" });
   if (cursor) {
     params.set("cursor", cursor);
+  }
+  if (authorId) {
+    params.set("authorId", authorId);
   }
   return request<JournalPage>(`/memories?${params}`);
 }
@@ -103,5 +107,17 @@ export async function updateMemory(
 export async function deleteMemory(id: string): Promise<void> {
   await request<void>(`/memories/${encodeURIComponent(id)}`, {
     method: "DELETE",
+  });
+}
+
+export interface LikeState {
+  likedByMe: boolean;
+  likeCount: number;
+}
+
+// liked = true to like, false to take it back
+export function setLiked(id: string, liked: boolean): Promise<LikeState> {
+  return request<LikeState>(`/memories/${encodeURIComponent(id)}/like`, {
+    method: liked ? "PUT" : "DELETE",
   });
 }

@@ -2,9 +2,11 @@ import { Navigate, Route, Routes } from "react-router";
 import { AppLayout } from "./presentation/components/layout/AppLayout";
 import { GuestRoute } from "./presentation/components/routing/GuestRoute";
 import { ProtectedRoute } from "./presentation/components/routing/ProtectedRoute";
+import { FriendsPage } from "./presentation/pages/FriendsPage";
 import { JournalPage } from "./presentation/pages/JournalPage";
 import { LoginPage } from "./presentation/pages/LoginPage";
 import { MemoryViewerPage } from "./presentation/pages/MemoryViewerPage";
+import { ProfilePage } from "./presentation/pages/ProfilePage";
 import { RegisterPage } from "./presentation/pages/RegisterPage";
 
 export default function App() {
@@ -21,6 +23,8 @@ export default function App() {
         {/* With the shared header (and the Keep a memory dialog) */}
         <Route element={<AppLayout />}>
           <Route path="/" element={<JournalPage />} />
+          <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/u/:username" element={<ProfilePage />} />
         </Route>
 
         <Route path="/memories/new" element={<Navigate to="/" replace />} />

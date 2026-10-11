@@ -4,6 +4,8 @@ import express, { type RequestHandler, type Router } from "express";
 interface AppDependencies {
   authRouter: Router;
   memoryRouter: Router;
+  friendRouter: Router;
+  userRouter: Router;
   sessionMiddleware: RequestHandler;
   isProduction: boolean;
   uploadsDir: string;
@@ -13,6 +15,8 @@ interface AppDependencies {
 export function createApp({
   authRouter,
   memoryRouter,
+  friendRouter,
+  userRouter,
   sessionMiddleware,
   isProduction,
   uploadsDir,
@@ -40,6 +44,8 @@ export function createApp({
   app.use(sessionMiddleware);
   app.use("/api/auth", authRouter);
   app.use("/api/memories", memoryRouter);
+  app.use("/api/friends", friendRouter);
+  app.use("/api/users", userRouter);
 
   if (webDistDir) {
     app.use(express.static(webDistDir));

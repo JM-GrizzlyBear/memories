@@ -7,8 +7,11 @@ import {
   useParams,
   useSearchParams,
 } from "react-router";
+import { useAuth } from "../../application/auth/useAuth";
 import { useMemory } from "../../application/memory/useMemory";
 import type { Memory } from "../../domain/memory";
+import { CommentsSection } from "../components/comment/CommentsSection";
+import { LikeButton } from "../components/memory/LikeButton";
 import { VISIBILITY } from "../components/memory/visibility";
 import { memoryAgo, memoryDateParts } from "../format/dates";
 
@@ -23,8 +26,11 @@ export function MemoryViewerPage() {
   const initial =
     (location.state as { memory?: Memory } | null)?.memory ?? null;
   const { memory, status } = useMemory(memoryId, initial);
+  const { user } = useAuth();
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  const openAtComments = location.hash === "#comments";
   const swipeStartX = useRef<number | null>(null);
 
   const photos = memory
@@ -62,10 +68,20 @@ export function MemoryViewerPage() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [index, total, goTo, close]);
 
-  // Start keyboard users on the close button
+  // Start keyboard users on the close button,
+  // or on the comment box when they came from a card's comment button
   useEffect(() => {
-    closeButtonRef.current?.focus();
-  }, [status]);
+    if (status !== "ready") {
+      closeButtonRef.current?.focus();
+      return;
+    }
+    if (openAtComments) {
+      document.getElementById("comments")?.scrollIntoView({ block: "start" });
+      commentInputRef.current?.focus({ preventScroll: true });
+    } else {
+      closeButtonRef.current?.focus();
+    }
+  }, [status, openAtComments]);
 
   // Download the next and previous photos early, so flipping feels instant
   useEffect(() => {
@@ -112,8 +128,9 @@ export function MemoryViewerPage() {
   const date = memoryDateParts(memory.memoryDate);
   const { label: visibilityLabel, Icon: VisibilityIcon } =
     VISIBILITY[memory.visibility];
-  const authorName = memory.author
-    ? `${memory.author.firstName} ${memory.author.lastName}`
+  const author = memory.author;
+  const authorName = author
+    ? `${author.firstName} ${author.lastName}`
     : "Someone";
 
   return (
@@ -249,13 +266,38 @@ export function MemoryViewerPage() {
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4 text-sm">
           <span className="text-neutral-600">
-            Kept by <span className="font-semibold text-ink">{authorName}</span>
+            Kept by{" "}
+            {author ? (
+              <Link
+                to={`/u/${author.username}`}
+                className="font-semibold text-ink hover:underline hover:underline-offset-4"
+              >
+                {authorName}
+              </Link>
+            ) : (
+              <span className="font-semibold text-ink">{authorName}</span>
+            )}
           </span>
           <span className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-xs text-neutral-600">
             <VisibilityIcon size={13} aria-hidden="true" />
             {visibilityLabel}
           </span>
         </div>
+
+        <div className="mt-2 -ml-3">
+          <LikeButton
+            // Fresh numbers from the server start the button over
+            key={`${memory.id}-${memory.likeCount}-${memory.likedByMe}`}
+            memory={memory}
+          />
+        </div>
+
+        <CommentsSection
+          memoryId={memory.id}
+          memoryOwnerId={memory.userId}
+          currentUserId={user?.id ?? ""}
+          inputRef={commentInputRef}
+        />
       </aside>
     </main>
   );

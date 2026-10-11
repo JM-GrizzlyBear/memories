@@ -27,6 +27,13 @@ export interface MemoryAuthor {
   profilePhotoUrl: string | null;
 }
 
-export interface MemoryWithAuthor extends Memory {
+// How people reacted to a memory, from the viewer's point of view
+export interface MemoryEngagement {
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+}
+
+export interface MemoryWithAuthor extends Memory, MemoryEngagement {
   author: MemoryAuthor;
 }

@@ -33,6 +33,9 @@ interface MemoryWithAuthorRow extends MemoryRow {
   last_name: string;
   profile_photo_url: string | null;
   photos: MemoryPhoto[]; // built as JSON by Postgres
+  like_count: number;
+  comment_count: number;
+  liked_by_me: boolean;
 }
 
 function toMemory(row: MemoryRow, photos: MemoryPhoto[]): Memory {
@@ -55,8 +58,10 @@ function toDateOnly(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-// One memory with its author and photos (cover first). Used by the journal and the viewer.
-const SELECT_MEMORY_WITH_AUTHOR = `
+// One memory with its author, photos (cover first), and like/comment counts.
+// viewerParam is the placeholder holding the viewer's id (for likedByMe), e.g. "$1".
+function selectMemoryWithAuthor(viewerParam: string) {
+  return `
   SELECT
     m.*,
     m.created_at::text AS created_at_text,
@@ -68,13 +73,34 @@ const SELECT_MEMORY_WITH_AUTHOR = `
          FROM memory_photos p
         WHERE p.memory_id = m.id),
       '[]'::json
-    ) AS photos
+    ) AS photos,
+    (SELECT count(*) FROM memory_likes l WHERE l.memory_id = m.id)::int AS like_count,
+    (SELECT count(*) FROM memory_comments c WHERE c.memory_id = m.id)::int AS comment_count,
+    EXISTS (
+      SELECT 1 FROM memory_likes l
+       WHERE l.memory_id = m.id AND l.user_id = ${viewerParam}::uuid
+    ) AS liked_by_me
   FROM memories m
   JOIN users u ON u.id = m.user_id`;
+}
+
+// The memories $1 (the viewer) may see. Keep this in sync with canView() in the domain.
+const VISIBLE_TO_VIEWER = `(
+  m.user_id = $1
+  OR m.visibility = 'public'
+  OR (m.visibility = 'friends' AND EXISTS (
+        SELECT 1 FROM friendships f
+         WHERE f.status = 'accepted'
+           AND LEAST(f.requester_id, f.addressee_id) = LEAST(m.user_id, $1::uuid)
+           AND GREATEST(f.requester_id, f.addressee_id) = GREATEST(m.user_id, $1::uuid)))
+)`;
 
 function toMemoryWithAuthor(row: MemoryWithAuthorRow): MemoryWithAuthor {
   return {
     ...toMemory(row, row.photos),
+    likeCount: row.like_count,
+    commentCount: row.comment_count,
+    likedByMe: row.liked_by_me,
     author: {
       id: row.user_id,
       username: row.username,
@@ -133,17 +159,18 @@ export class PostgresMemoryRepository implements MemoryRepository {
 
   async findJournal({
     viewerId,
+    authorId,
     limit,
     after,
   }: JournalQuery): Promise<JournalItem[]> {
-    // Keep this WHERE in sync with canView() in the domain
     const result = await this.pool.query<MemoryWithAuthorRow>(
-      `${SELECT_MEMORY_WITH_AUTHOR}
-     WHERE (m.user_id = $1 OR m.visibility = 'public')
-       AND ($2::timestamptz IS NULL OR (m.created_at, m.id) < ($2::timestamptz, $3::uuid))
+      `${selectMemoryWithAuthor("$1")}
+     WHERE ${VISIBLE_TO_VIEWER}
+       AND ($2::uuid IS NULL OR m.user_id = $2)
+       AND ($3::timestamptz IS NULL OR (m.created_at, m.id) < ($3::timestamptz, $4::uuid))
      ORDER BY m.created_at DESC, m.id DESC
-     LIMIT $4`,
-      [viewerId, after?.createdAt ?? null, after?.id ?? null, limit],
+     LIMIT $5`,
+      [viewerId, authorId, after?.createdAt ?? null, after?.id ?? null, limit],
     );
 
     return result.rows.map((row) => ({
@@ -152,11 +179,14 @@ export class PostgresMemoryRepository implements MemoryRepository {
     }));
   }
 
-  async findById(id: string): Promise<MemoryWithAuthor | null> {
+  async findById(
+    id: string,
+    viewerId?: string,
+  ): Promise<MemoryWithAuthor | null> {
     const result = await this.pool.query<MemoryWithAuthorRow>(
-      `${SELECT_MEMORY_WITH_AUTHOR}
+      `${selectMemoryWithAuthor("$2")}
      WHERE m.id = $1`,
-      [id],
+      [id, viewerId ?? null],
     );
     const row = result.rows[0];
     return row ? toMemoryWithAuthor(row) : null;

@@ -4,8 +4,9 @@ import { listJournal } from "../../infrastructure/api/memoryApi";
 
 type Status = "loading" | "ready" | "error";
 
-// Loads the journal page by page, and keeps track of loading and errors
-export function useJournal() {
+// Loads the journal page by page, and keeps track of loading and errors.
+// With an authorId, only that person's memories (for their profile).
+export function useJournal(authorId: string | null = null) {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("loading");
@@ -15,7 +16,7 @@ export function useJournal() {
   const loadFirstPage = useCallback(
     async (isCancelled: () => boolean = () => false) => {
       try {
-        const page = await listJournal();
+        const page = await listJournal(null, authorId);
         if (isCancelled()) return;
         setMemories(page.memories);
         setNextCursor(page.nextCursor);
@@ -24,7 +25,7 @@ export function useJournal() {
         if (!isCancelled()) setStatus("error");
       }
     },
-    [],
+    [authorId],
   );
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export function useJournal() {
     setIsLoadingMore(true);
     setLoadMoreFailed(false);
     try {
-      const page = await listJournal(nextCursor);
+      const page = await listJournal(nextCursor, authorId);
       setMemories((current) => [...current, ...page.memories]);
       setNextCursor(page.nextCursor);
     } catch {

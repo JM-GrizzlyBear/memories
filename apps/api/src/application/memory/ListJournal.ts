@@ -8,6 +8,7 @@ const MAX_PAGE_SIZE = 20;
 
 export interface ListJournalInput {
   viewerId: string;
+  authorId?: string | null; // set = only this person's memories (their profile)
   limit?: number;
   after: JournalCursor | null;
 }
@@ -24,6 +25,7 @@ export class ListJournal {
     // Ask for one extra: if it exists, there is another page
     const items = await this.memories.findJournal({
       viewerId: input.viewerId,
+      authorId: input.authorId ?? null,
       limit: pageSize + 1,
       after: input.after,
     });
