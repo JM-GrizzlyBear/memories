@@ -19,6 +19,8 @@ export function AppToaster() {
           description: "text-neutral-600!",
           icon: "text-ink!",
           actionButton: "bg-neutral-900! text-white! rounded-full! px-3!",
+          // Errors: a red edge and icon, so they stand out from "saved" messages
+          error: "border-red-700! border-l-4! [&_[data-icon]]:text-red-700!",
         },
       }}
       // Paper-and-ink colours instead of sonner's defaults

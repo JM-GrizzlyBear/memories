@@ -7,7 +7,7 @@ interface LikeButtonProps {
 }
 
 export function LikeButton({ memory }: LikeButtonProps) {
-  const { likedByMe, likeCount, failed, toggle } = useLike(memory);
+  const { likedByMe, likeCount, toggle } = useLike(memory);
 
   return (
     <div className="flex items-center gap-2">
@@ -25,14 +25,11 @@ export function LikeButton({ memory }: LikeButtonProps) {
         />
         <span className="tabular-nums">
           {likeCount}
-          <span className="sr-only">{likeCount === 1 ? " like" : " likes"}</span>
+          <span className="sr-only">
+            {likeCount === 1 ? " like" : " likes"}
+          </span>
         </span>
       </button>
-      {failed && (
-        <span role="alert" className="text-xs text-red-600">
-          Couldn't save your like
-        </span>
-      )}
     </div>
   );
 }

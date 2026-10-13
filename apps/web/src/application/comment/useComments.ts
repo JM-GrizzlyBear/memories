@@ -5,6 +5,7 @@ import {
   deleteComment,
   listComments,
 } from "../../infrastructure/api/commentApi";
+import { ApiError } from "../../infrastructure/api/http";
 import { updateMemoryInCache } from "../memory/memoryCache";
 import { queryKeys } from "../query/queryKeys";
 
@@ -29,6 +30,12 @@ export function useComments(memoryId: string) {
 
   const addMutation = useMutation({
     mutationFn: async (body: string) => await addComment(memoryId, body),
+    meta: {
+      errorMessage: (error) =>
+        error instanceof ApiError && error.status === 404
+          ? "This memory isn't available anymore."
+          : "Couldn't post your comment. Try again.",
+    },
     onSuccess: (comment) => {
       queryClient.setQueryData<Comment[]>(queryKey, (current) =>
         current ? [...current, comment] : [comment],
@@ -42,6 +49,7 @@ export function useComments(memoryId: string) {
       await deleteComment(memoryId, commentId);
       return commentId;
     },
+    meta: { errorMessage: "Couldn't delete the comment. Try again." },
     onSuccess: (commentId) => {
       queryClient.setQueryData<Comment[]>(queryKey, (current) =>
         current?.filter((comment) => comment.id !== commentId),
@@ -60,7 +68,7 @@ export function useComments(memoryId: string) {
     comments: query.data ?? [],
     status,
     retry: () => void query.refetch(),
-    // Errors are thrown back to the form, which shows them next to the field
+    // Errors are thrown back too, so the form knows it didn't work (a toast explains)
     add: async (body: string) => {
       await addMutation.mutateAsync(body);
     },

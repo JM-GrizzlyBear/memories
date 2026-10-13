@@ -28,6 +28,13 @@ export function useFriendship(userId: string, initial: FriendshipStatus) {
 
   const mutation = useMutation({
     mutationFn: async (action: FriendAction) => await ACTIONS[action](userId),
+    meta: {
+      // 404 = it changed in the meantime (they cancelled, or already unfriended)
+      errorMessage: (error) =>
+        error instanceof ApiError && error.status === 404
+          ? "This changed in the meantime. Refresh the page to see where things stand."
+          : null,
+    },
     onSuccess: (next) => {
       setStatus(next);
       // A friendship changes a lot: the friend lists and the header badge, profiles
@@ -38,7 +45,7 @@ export function useFriendship(userId: string, initial: FriendshipStatus) {
     },
   });
 
-  // The new status when it worked; null when it didn't (the error is in `error`)
+  // The new status when it worked; null when it didn't (an error toast says why)
   async function run(action: FriendAction): Promise<FriendshipStatus | null> {
     if (mutation.isPending) return null;
     try {
@@ -48,17 +55,9 @@ export function useFriendship(userId: string, initial: FriendshipStatus) {
     }
   }
 
-  // 404 = it changed in the meantime (they cancelled, or already unfriended)
-  const error = mutation.isError
-    ? mutation.error instanceof ApiError && mutation.error.status === 404
-      ? "This changed in the meantime. Refresh the page to see where things stand."
-      : "Something went wrong. Please try again."
-    : null;
-
   return {
     status,
     isWorking: mutation.isPending,
-    error,
     add: () => run("add"),
     cancel: () => run("cancel"),
     accept: () => run("accept"),

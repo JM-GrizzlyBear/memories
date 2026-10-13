@@ -5,7 +5,6 @@ import { useChangePassword } from "../../../application/account/useAccountMutati
 import { apiErrorMessages, firstErrors } from "../../format/fieldErrors";
 import { Button } from "../ui/Button";
 import { PasswordInput } from "../ui/PasswordInput";
-import { FormError } from "./FormMessages";
 import { SettingsSection } from "./SettingsSection";
 
 const emptyForm = {
@@ -37,7 +36,6 @@ function validate(form: PasswordForm): FieldErrors {
 export function PasswordSection({ username }: { username: string }) {
   const [form, setForm] = useState(emptyForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [formError, setFormError] = useState<string | null>(null);
   const passwordChange = useChangePassword();
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
@@ -48,7 +46,6 @@ export function PasswordSection({ username }: { username: string }) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFieldErrors({});
-    setFormError(null);
 
     const errors = validate(form);
     if (Object.keys(errors).length > 0) {
@@ -64,10 +61,8 @@ export function PasswordSection({ username }: { username: string }) {
           "You're still logged in here, and logged out on your other devices.",
       });
     } catch (caught) {
-      const { fields, form: message } =
-        apiErrorMessages<keyof PasswordForm>(caught);
-      setFieldErrors(fields);
-      setFormError(message);
+      // Problems with a field show under it; anything else gets an error toast
+      setFieldErrors(apiErrorMessages<keyof PasswordForm>(caught).fields);
     }
   }
 
@@ -87,8 +82,6 @@ export function PasswordSection({ username }: { username: string }) {
           readOnly
           hidden
         />
-
-        <FormError text={formError} />
 
         <PasswordInput
           id="currentPassword"

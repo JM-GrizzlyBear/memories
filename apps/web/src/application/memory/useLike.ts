@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Memory } from "../../domain/memory";
+import { ApiError } from "../../infrastructure/api/http";
 import { setLiked } from "../../infrastructure/api/memoryApi";
 import { queryKeys } from "../query/queryKeys";
 import { updateMemoryInCache } from "./memoryCache";
@@ -14,7 +15,7 @@ function withLike(memory: Memory, liked: boolean): Memory {
 }
 
 // Liking feels instant: the heart fills first (everywhere the memory is shown),
-// then the server confirms, or we undo it
+// then the server confirms, or we undo it (and an error toast says so)
 export function useLike(
   memory: Pick<Memory, "id" | "likedByMe" | "likeCount">,
 ) {
@@ -26,6 +27,12 @@ export function useLike(
     // Clicks on the same memory reach the server one at a time, in click order
     scope: { id: `like-${memory.id}` },
     mutationFn: async (liked: boolean) => await setLiked(memory.id, liked),
+    meta: {
+      errorMessage: (error) =>
+        error instanceof ApiError && error.status === 404
+          ? null // the usual "isn't available anymore"
+          : "Couldn't save your like. Try again.",
+    },
     onMutate: async (liked) => {
       // A refresh arriving now would put the old heart back
       await queryClient.cancelQueries({ queryKey: queryKeys.memories });
@@ -51,7 +58,6 @@ export function useLike(
   return {
     likedByMe: memory.likedByMe,
     likeCount: memory.likeCount,
-    failed: mutation.isError,
     toggle: () => mutation.mutate(!memory.likedByMe),
   };
 }

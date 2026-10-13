@@ -7,7 +7,6 @@ import { apiErrorMessages, firstErrors } from "../../format/fieldErrors";
 import { Button } from "../ui/Button";
 import { DateInput } from "../ui/DateInput";
 import { Input } from "../ui/Input";
-import { FormError } from "./FormMessages";
 import { SettingsSection } from "./SettingsSection";
 
 interface ProfileForm {
@@ -50,7 +49,6 @@ export function ProfileDetailsSection({ user }: { user: User }) {
   const saveProfile = useUpdateProfile();
   const [form, setForm] = useState(() => formFromUser(user));
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [formError, setFormError] = useState<string | null>(null);
 
   const saved = formFromUser(user);
   const isChanged = (Object.keys(form) as (keyof ProfileForm)[]).some(
@@ -67,7 +65,6 @@ export function ProfileDetailsSection({ user }: { user: User }) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFieldErrors({});
-    setFormError(null);
 
     const errors = validate(form);
     if (Object.keys(errors).length > 0) {
@@ -81,10 +78,8 @@ export function ProfileDetailsSection({ user }: { user: User }) {
       setForm(formFromUser(updated));
       toast.success("Profile saved");
     } catch (caught) {
-      const { fields, form: message } =
-        apiErrorMessages<keyof ProfileForm>(caught);
-      setFieldErrors(fields);
-      setFormError(message);
+      // Problems with a field show under it; anything else gets an error toast
+      setFieldErrors(apiErrorMessages<keyof ProfileForm>(caught).fields);
     }
   }
 
@@ -95,8 +90,6 @@ export function ProfileDetailsSection({ user }: { user: User }) {
       description="Your name and username are shown to everyone on Memories. Your birthday stays private."
     >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-        <FormError text={formError} />
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             id="settings-firstName"

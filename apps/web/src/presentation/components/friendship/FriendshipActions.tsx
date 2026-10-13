@@ -130,12 +130,6 @@ export function FriendshipActions({
         )}
       </div>
 
-      {friendship.error && (
-        <p role="alert" className="max-w-xs text-sm text-red-600">
-          {friendship.error}
-        </p>
-      )}
-
       <UnfriendDialog
         person={confirmingUnfriend ? person : null}
         isWorking={isWorking}

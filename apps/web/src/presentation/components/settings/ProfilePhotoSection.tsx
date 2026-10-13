@@ -74,8 +74,8 @@ export function ProfilePhotoSection() {
       setPicked(null);
       toast.success("Profile photo saved");
     } catch (caught) {
-      const { fields, form } = apiErrorMessages<"photo">(caught);
-      setError(fields.photo ?? form);
+      // A problem with the photo itself shows here; anything else gets an error toast
+      setError(apiErrorMessages<"photo">(caught).fields.photo ?? null);
     }
   }
 
@@ -84,8 +84,8 @@ export function ProfilePhotoSection() {
     try {
       await removal.mutateAsync();
       toast.success("Profile photo removed");
-    } catch (caught) {
-      setError(apiErrorMessages(caught).form);
+    } catch {
+      // An error toast says what happened
     }
   }
 

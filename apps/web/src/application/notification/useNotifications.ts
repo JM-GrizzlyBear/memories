@@ -91,6 +91,7 @@ export function useMarkNotificationRead() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => await markNotificationRead(id),
+    meta: { errorToast: false }, // not worth interrupting for; the bell corrects itself
     // Instant: the dot disappears and the bell counts down before the server answers
     onMutate: (id) => {
       const marked = markReadInCache(queryClient, (n) => n.id === id);
@@ -109,6 +110,9 @@ export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => await markAllNotificationsRead(),
+    meta: {
+      errorMessage: "Couldn't mark your notifications as read. Try again.",
+    },
     onMutate: () => {
       markReadInCache(queryClient, () => true);
       queryClient.setQueryData(queryKeys.unreadNotifications, 0);
