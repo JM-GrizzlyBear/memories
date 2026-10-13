@@ -1,5 +1,6 @@
 import { PROFILE_PHOTO_LIMITS } from "@memories/shared";
 import { Camera, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   useRemoveProfilePhoto,
@@ -8,7 +9,7 @@ import {
 import { useAuth } from "../../../application/auth/useAuth";
 import { apiErrorMessages } from "../../format/fieldErrors";
 import { Avatar } from "../user/Avatar";
-import { FormError, FormSuccess } from "./FormMessages";
+import { FormError } from "./FormMessages";
 import { SettingsSection } from "./SettingsSection";
 
 const primary =
@@ -35,7 +36,6 @@ export function ProfilePhotoSection() {
       ? "removing"
       : null;
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   // Free the preview's memory when it's replaced or the page closes
   useEffect(() => {
@@ -50,7 +50,6 @@ export function ProfilePhotoSection() {
     const file = event.target.files?.[0];
     event.target.value = ""; // so picking the same file again still works
     setError(null);
-    setSuccess(null);
     if (!file) return;
 
     // Same rules as the API: quick feedback without uploading anything
@@ -73,21 +72,20 @@ export function ProfilePhotoSection() {
     try {
       await upload.mutateAsync(picked.file); // the header shows it right away
       setPicked(null);
-      setSuccess("Profile photo saved.");
+      toast.success("Profile photo saved");
     } catch (caught) {
-      const { fields, form } = apiErrorMessages<"photo">(caught);
-      setError(fields.photo ?? form);
+      // A problem with the photo itself shows here; anything else gets an error toast
+      setError(apiErrorMessages<"photo">(caught).fields.photo ?? null);
     }
   }
 
   async function handleRemove() {
     setError(null);
-    setSuccess(null);
     try {
       await removal.mutateAsync();
-      setSuccess("Profile photo removed.");
-    } catch (caught) {
-      setError(apiErrorMessages(caught).form);
+      toast.success("Profile photo removed");
+    } catch {
+      // An error toast says what happened
     }
   }
 
@@ -169,7 +167,6 @@ export function ProfilePhotoSection() {
             </p>
           )}
           <FormError text={error} />
-          <FormSuccess text={success} />
         </div>
       </div>
     </SettingsSection>

@@ -8,6 +8,7 @@ interface AppDependencies {
   memoryRouter: Router;
   friendRouter: Router;
   userRouter: Router;
+  notificationRouter: Router;
   sessionMiddleware: RequestHandler;
   isProduction: boolean;
   uploadsDir: string;
@@ -20,6 +21,7 @@ export function createApp({
   memoryRouter,
   friendRouter,
   userRouter,
+  notificationRouter,
   sessionMiddleware,
   isProduction,
   uploadsDir,
@@ -50,6 +52,7 @@ export function createApp({
   app.use("/api/memories", memoryRouter);
   app.use("/api/friends", friendRouter);
   app.use("/api/users", userRouter);
+  app.use("/api/notifications", notificationRouter);
   app.use("/api", apiNotFound);
 
   if (webDistDir) {

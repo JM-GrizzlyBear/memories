@@ -16,6 +16,9 @@ import { DeleteMemory } from "./application/memory/DeleteMemory.js";
 import { GetMemory } from "./application/memory/GetMemory.js";
 import { ListJournal } from "./application/memory/ListJournal.js";
 import { MemoryAccess } from "./application/memory/MemoryAccess.js";
+import { ListNotifications } from "./application/notification/ListNotifications.js";
+import { Notifier } from "./application/notification/Notifier.js";
+import { ReadNotifications } from "./application/notification/ReadNotifications.js";
 import { UpdateMemory } from "./application/memory/UpdateMemory.js";
 import { ChangePassword } from "./application/user/ChangePassword.js";
 import { GetCurrentUser } from "./application/user/GetCurrentUser.js";
@@ -31,8 +34,10 @@ import { PostgresCommentRepository } from "./infrastructure/database/PostgresCom
 import { PostgresFriendshipRepository } from "./infrastructure/database/PostgresFriendshipRepository.js";
 import { PostgresLikeRepository } from "./infrastructure/database/PostgresLikeRepository.js";
 import { PostgresMemoryRepository } from "./infrastructure/database/PostgresMemoryRepository.js";
+import { PostgresNotificationRepository } from "./infrastructure/database/PostgresNotificationRepository.js";
 import { PostgresSessionStore } from "./infrastructure/database/PostgresSessionStore.js";
 import { PostgresUserRepository } from "./infrastructure/database/PostgresUserRepository.js";
+import { SocketIoPublisher } from "./infrastructure/realtime/SocketIoPublisher.js";
 import { BcryptPasswordHasher } from "./infrastructure/security/BcryptPasswordHasher.js";
 import {
   createPhotoStorage,
@@ -49,9 +54,12 @@ import { createFriendRouter } from "./presentation/http/friends/friendRoutes.js"
 import { LikeController } from "./presentation/http/likes/LikeController.js";
 import { MemoryController } from "./presentation/http/memories/MemoryController.js";
 import { createMemoryRouter } from "./presentation/http/memories/memoryRoutes.js";
+import { NotificationController } from "./presentation/http/notifications/NotificationController.js";
+import { createNotificationRouter } from "./presentation/http/notifications/notificationRoutes.js";
 import { createSessionMiddleware } from "./presentation/http/session.js";
 import { UserController } from "./presentation/http/users/UserController.js";
 import { createUserRouter } from "./presentation/http/users/userRoutes.js";
+import { createSocketServer } from "./presentation/realtime/socketServer.js";
 
 const port = Number(process.env.PORT ?? 4000);
 const isProduction = process.env.NODE_ENV === "production";
@@ -87,6 +95,9 @@ const friendshipRepository = new PostgresFriendshipRepository(pool);
 const likeRepository = new PostgresLikeRepository(pool);
 const commentRepository = new PostgresCommentRepository(pool);
 const sessionStore = new PostgresSessionStore(pool);
+const notificationRepository = new PostgresNotificationRepository(pool);
+const realtime = new SocketIoPublisher();
+const notifier = new Notifier(notificationRepository, realtime);
 const memoryAccess = new MemoryAccess(memoryRepository, friendshipRepository);
 
 // Auth
@@ -115,11 +126,11 @@ const memoryController = new MemoryController(
   new DeleteMemory(memoryRepository, photoStorage, memoryAccess),
 );
 const likeController = new LikeController(
-  new LikeMemory(memoryAccess, likeRepository),
+  new LikeMemory(memoryAccess, likeRepository, notifier),
 );
 const commentController = new CommentController(
   new ListComments(memoryAccess, commentRepository),
-  new AddComment(memoryAccess, commentRepository),
+  new AddComment(memoryAccess, commentRepository, notifier),
   new DeleteComment(memoryAccess, commentRepository),
 );
 const memoryRouter = createMemoryRouter(
@@ -132,9 +143,9 @@ const memoryRouter = createMemoryRouter(
 const friendController = new FriendController(
   new ListFriends(friendshipRepository),
   new ListFriendRequests(friendshipRepository),
-  new SendFriendRequest(userRepository, friendshipRepository),
+  new SendFriendRequest(userRepository, friendshipRepository, notifier),
   new CancelFriendRequest(friendshipRepository),
-  new AcceptFriendRequest(friendshipRepository),
+  new AcceptFriendRequest(friendshipRepository, notifier),
   new DeclineFriendRequest(friendshipRepository),
   new RemoveFriend(friendshipRepository),
 );
@@ -147,6 +158,13 @@ const userController = new UserController(
 );
 const userRouter = createUserRouter(userController);
 
+// Notifications
+const notificationController = new NotificationController(
+  new ListNotifications(notificationRepository),
+  new ReadNotifications(notificationRepository),
+);
+const notificationRouter = createNotificationRouter(notificationController);
+
 const sessionMiddleware = createSessionMiddleware(pool, sessionSecret);
 
 const app = createApp({
@@ -155,6 +173,7 @@ const app = createApp({
   memoryRouter,
   friendRouter,
   userRouter,
+  notificationRouter,
   sessionMiddleware,
   isProduction,
   uploadsDir,
@@ -165,9 +184,14 @@ const server = app.listen(port, () => {
   console.log(`API running on port ${port}`);
 });
 
+// Live updates (new notifications) over the same server
+const io = createSocketServer(server, sessionMiddleware);
+realtime.attach(io);
+
 // Render stops old containers with SIGTERM: finish requests, close the DB, exit
 process.on("SIGTERM", () => {
   console.log("Shutting down...");
+  void io.close(); // closes the live connections, then the server
   server.close(async () => {
     await pool.end();
     process.exit(0);

@@ -5,8 +5,6 @@ import { useProfile } from "../../application/user/useProfile";
 import type { FriendshipStatus, Profile } from "../../domain/friendship";
 import { FriendshipActions } from "../components/friendship/FriendshipActions";
 import { MemoryList } from "../components/memory/MemoryList";
-import { Notice } from "../components/memory/Notice";
-import { useKeepMemory } from "../components/memory/useKeepMemory";
 import { Avatar } from "../components/user/Avatar";
 import { monthYear } from "../format/dates";
 
@@ -25,25 +23,21 @@ function emptyText(friendship: FriendshipStatus, firstName: string) {
 // The memories part. Friend actions refresh it by themselves (see useFriendship).
 function ProfileMemories({ profile }: { profile: Profile }) {
   const journal = useJournal(profile.id);
-  const { notice } = useKeepMemory();
 
   return (
-    <>
-      <Notice text={notice} />
-      <MemoryList
-        journal={journal}
-        endText={
-          profile.friendship === "self"
-            ? "That's your very first memory."
-            : `That's everything ${profile.firstName} has shared with you.`
-        }
-        empty={
-          <p className="mt-16 text-center text-neutral-500">
-            {emptyText(profile.friendship, profile.firstName)}
-          </p>
-        }
-      />
-    </>
+    <MemoryList
+      journal={journal}
+      endText={
+        profile.friendship === "self"
+          ? "That's your very first memory."
+          : `That's everything ${profile.firstName} has shared with you.`
+      }
+      empty={
+        <p className="mt-16 text-center text-neutral-500">
+          {emptyText(profile.friendship, profile.firstName)}
+        </p>
+      }
+    />
   );
 }
 

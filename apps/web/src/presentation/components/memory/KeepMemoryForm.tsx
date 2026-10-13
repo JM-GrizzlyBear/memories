@@ -7,6 +7,7 @@ import {
   useUpdateMemory,
 } from "../../../application/memory/useMemoryMutations";
 import { ApiError } from "../../../infrastructure/api/http";
+import { errorMessage } from "../../format/errorMessage";
 import { Button } from "../ui/Button";
 import { DateInput } from "../ui/DateInput";
 import { Input } from "../ui/Input";
@@ -185,10 +186,10 @@ export function KeepMemoryForm({
             ]),
           ),
         );
-      } else if (error instanceof ApiError) {
-        setFormError(error.message);
       } else {
-        setFormError("Something went wrong. Please try again.");
+        // Shown inside the dialog (a toast would be hidden behind it).
+        // The photos and story stay in the form, so trying again is one click.
+        setFormError(errorMessage(error));
       }
     }
   }

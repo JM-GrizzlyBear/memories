@@ -13,17 +13,13 @@ import {
   NotMemoryOwnerError,
 } from "../../../domain/memory/errors.js";
 import type { JournalCursor } from "../../../domain/memory/MemoryRepository.js";
+import { decodeCursor, encodeCursor } from "../cursor.js";
 import { parseId } from "../parseId.js";
 
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).optional(),
   cursor: z.string().optional(),
   authorId: z.uuid().optional(), // only this person's memories (their profile)
-});
-
-const cursorSchema = z.object({
-  createdAt: z.string().min(1),
-  id: z.uuid(),
 });
 
 const photoOrderSchema = z
@@ -35,22 +31,6 @@ const photoOrderSchema = z
   )
   .min(1)
   .max(MEMORY_LIMITS.maxPhotos);
-
-// The cursor travels as an opaque, URL-safe string
-function encodeCursor(cursor: JournalCursor) {
-  return Buffer.from(JSON.stringify(cursor)).toString("base64url");
-}
-
-function decodeCursor(value: string): JournalCursor | null {
-  try {
-    const parsed = cursorSchema.safeParse(
-      JSON.parse(Buffer.from(value, "base64url").toString("utf8")),
-    );
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
 
 // The photo order arrives as a JSON string inside the multipart form
 function parsePhotoOrder(value: unknown) {

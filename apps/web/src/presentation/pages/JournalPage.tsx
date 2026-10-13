@@ -1,12 +1,11 @@
 import { ImagePlus } from "lucide-react";
 import { useJournal } from "../../application/memory/useJournal";
 import { MemoryList } from "../components/memory/MemoryList";
-import { Notice } from "../components/memory/Notice";
 import { useKeepMemory } from "../components/memory/useKeepMemory";
 
 export function JournalPage() {
   const journal = useJournal();
-  const { openKeepMemory, notice } = useKeepMemory();
+  const { openKeepMemory } = useKeepMemory();
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-10 sm:px-6">
@@ -18,8 +17,6 @@ export function JournalPage() {
           Your memories, your friends', and the ones shared with everyone.
         </p>
       </div>
-
-      <Notice text={notice} />
 
       <MemoryList
         journal={journal}

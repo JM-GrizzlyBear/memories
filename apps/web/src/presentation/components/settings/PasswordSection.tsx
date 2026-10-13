@@ -1,10 +1,10 @@
 import { changePasswordSchema } from "@memories/shared";
+import { toast } from "sonner";
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useChangePassword } from "../../../application/account/useAccountMutations";
 import { apiErrorMessages, firstErrors } from "../../format/fieldErrors";
 import { Button } from "../ui/Button";
 import { PasswordInput } from "../ui/PasswordInput";
-import { FormError, FormSuccess } from "./FormMessages";
 import { SettingsSection } from "./SettingsSection";
 
 const emptyForm = {
@@ -36,21 +36,16 @@ function validate(form: PasswordForm): FieldErrors {
 export function PasswordSection({ username }: { username: string }) {
   const [form, setForm] = useState(emptyForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [formError, setFormError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const passwordChange = useChangePassword();
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
-    setSuccess(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFieldErrors({});
-    setFormError(null);
-    setSuccess(null);
 
     const errors = validate(form);
     if (Object.keys(errors).length > 0) {
@@ -61,14 +56,13 @@ export function PasswordSection({ username }: { username: string }) {
     try {
       await passwordChange.mutateAsync(form);
       setForm(emptyForm);
-      setSuccess(
-        "Password changed. You're still logged in here, and logged out on your other devices.",
-      );
+      toast.success("Password changed", {
+        description:
+          "You're still logged in here, and logged out on your other devices.",
+      });
     } catch (caught) {
-      const { fields, form: message } =
-        apiErrorMessages<keyof PasswordForm>(caught);
-      setFieldErrors(fields);
-      setFormError(message);
+      // Problems with a field show under it; anything else gets an error toast
+      setFieldErrors(apiErrorMessages<keyof PasswordForm>(caught).fields);
     }
   }
 
@@ -88,8 +82,6 @@ export function PasswordSection({ username }: { username: string }) {
           readOnly
           hidden
         />
-
-        <FormError text={formError} />
 
         <PasswordInput
           id="currentPassword"
@@ -128,7 +120,6 @@ export function PasswordSection({ username }: { username: string }) {
           >
             Change password
           </Button>
-          <FormSuccess text={success} />
         </div>
       </form>
     </SettingsSection>

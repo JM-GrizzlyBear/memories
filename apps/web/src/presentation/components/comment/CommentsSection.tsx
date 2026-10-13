@@ -2,9 +2,9 @@ import { COMMENT_LIMITS, createCommentSchema } from "@memories/shared";
 import { Trash2 } from "lucide-react";
 import { useState, type FormEvent, type RefObject } from "react";
 import { Link } from "react-router";
+import { toast } from "sonner";
 import { useComments } from "../../../application/comment/useComments";
 import type { Comment } from "../../../domain/comment";
-import { ApiError } from "../../../infrastructure/api/http";
 import { timeAgo } from "../../format/dates";
 import { Avatar } from "../user/Avatar";
 
@@ -25,17 +25,15 @@ function CommentItem({
   onDelete: () => Promise<void>;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [failed, setFailed] = useState(false);
   const name = `${comment.author.firstName} ${comment.author.lastName}`;
 
   async function handleDelete() {
     setIsDeleting(true);
-    setFailed(false);
     try {
       await onDelete(); // on success this item disappears
+      toast.success("Comment deleted");
     } catch {
-      setFailed(true);
-      setIsDeleting(false);
+      setIsDeleting(false); // an error toast says what happened
     }
   }
 
@@ -51,17 +49,15 @@ function CommentItem({
             {name}
           </Link>{" "}
           <span className="text-neutral-500">
-            · <time dateTime={comment.createdAt}>{timeAgo(comment.createdAt)}</time>
+            ·{" "}
+            <time dateTime={comment.createdAt}>
+              {timeAgo(comment.createdAt)}
+            </time>
           </span>
         </p>
         <p className="mt-1 whitespace-pre-line break-words text-[15px] leading-relaxed text-neutral-800">
           {comment.body}
         </p>
-        {failed && (
-          <p role="alert" className="mt-1 text-xs text-red-600">
-            Couldn't delete it. Try again.
-          </p>
-        )}
       </div>
       {canDelete && (
         <button
@@ -102,12 +98,8 @@ export function CommentsSection({
     try {
       await add(parsed.data.body);
       setText("");
-    } catch (caught) {
-      setError(
-        caught instanceof ApiError && caught.status === 404
-          ? "This memory isn't available anymore."
-          : "Couldn't post your comment. Try again.",
-      );
+    } catch {
+      // An error toast says what happened; the text stays so you can try again
     } finally {
       setIsPosting(false);
     }

@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { useEffect, useRef, type SyntheticEvent } from "react";
 import { useDeleteMemory } from "../../../application/memory/useMemoryMutations";
 import type { Memory } from "../../../domain/memory";
-import { ApiError } from "../../../infrastructure/api/http";
 
 interface DeleteMemoryDialogProps {
   memory: Memory | null; // a memory = open
@@ -17,7 +16,6 @@ export function DeleteMemoryDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const deletion = useDeleteMemory();
   const isDeleting = deletion.isPending;
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -28,7 +26,6 @@ export function DeleteMemoryDialog({
 
   function requestClose() {
     if (isDeleting) return;
-    setError(null);
     onClose();
   }
 
@@ -39,16 +36,12 @@ export function DeleteMemoryDialog({
 
   async function handleDelete() {
     if (!memory) return;
-    setError(null);
     try {
       await deletion.mutateAsync(memory);
       onDeleted(memory);
-    } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Something went wrong. Please try again.",
-      );
+    } catch {
+      // Close, so the error toast isn't hidden behind this dialog
+      onClose();
     }
   }
 
@@ -77,12 +70,6 @@ export function DeleteMemoryDialog({
           >
             Its photos and story will be gone for good. This can't be undone.
           </p>
-
-          {error && (
-            <p role="alert" className="mt-4 text-sm text-red-600">
-              {error}
-            </p>
-          )}
 
           <div className="mt-6 flex justify-end gap-2">
             <button
