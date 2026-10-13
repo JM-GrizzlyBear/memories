@@ -8,6 +8,8 @@ export default defineConfig({
     proxy: {
       "/api": "http://localhost:4000",
       "/uploads": "http://localhost:4000",
+      // Live updates: a WebSocket, so the proxy must pass upgrades through (ws)
+      "/socket.io": { target: "http://localhost:4000", ws: true },
     },
   },
 });

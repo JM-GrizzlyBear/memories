@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router";
 import App from "./App.tsx";
 import { AuthProvider } from "./application/auth/AuthProvider.tsx";
 import { queryClient } from "./application/query/queryClient.ts";
+import { AppToaster } from "./presentation/components/ui/AppToaster.tsx";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -17,6 +18,7 @@ createRoot(document.getElementById("root")!).render(
           <App />
         </AuthProvider>
       </BrowserRouter>
+      <AppToaster />
       {/* A panel to look inside the cache while developing; left out of production builds */}
       <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
     </QueryClientProvider>

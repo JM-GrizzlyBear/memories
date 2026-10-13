@@ -3,6 +3,7 @@ import { friendshipStatus } from "../../domain/friendship/Friendship.js";
 import type { FriendshipRepository } from "../../domain/friendship/FriendshipRepository.js";
 import { UserNotFoundError } from "../../domain/user/errors.js";
 import type { UserRepository } from "../../domain/user/UserRepository.js";
+import type { Notifier } from "../notification/Notifier.js";
 
 export interface SendFriendRequestInput {
   userId: string; // me
@@ -13,6 +14,7 @@ export class SendFriendRequest {
   constructor(
     private readonly users: UserRepository,
     private readonly friendships: FriendshipRepository,
+    private readonly notifier: Notifier,
   ) {}
 
   async execute({ userId, targetId }: SendFriendRequestInput) {
@@ -25,12 +27,22 @@ export class SendFriendRequest {
 
     if (!existing) {
       await this.friendships.createRequest(userId, targetId);
+      await this.notifier.notify({
+        recipientId: targetId,
+        actorId: userId,
+        type: "friend_request",
+      });
     } else if (
       existing.status === "pending" &&
       existing.requesterId === targetId
     ) {
       // They already asked me: adding them back means yes
       await this.friendships.accept(targetId, userId);
+      await this.notifier.notify({
+        recipientId: targetId,
+        actorId: userId,
+        type: "friend_accepted",
+      });
     }
     // Already friends, or I already asked: nothing to do (clicking twice is harmless)
 

@@ -21,4 +21,8 @@ export const queryKeys = {
   profile: (username: string) =>
     ["users", "profile", username.toLowerCase()] as const,
   userSearch: (text: string) => ["users", "search", text] as const,
+
+  notifications: ["notifications"] as const,
+  notificationList: ["notifications", "list"] as const,
+  unreadNotifications: ["notifications", "unread"] as const,
 };

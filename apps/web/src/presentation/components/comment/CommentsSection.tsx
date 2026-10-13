@@ -2,6 +2,7 @@ import { COMMENT_LIMITS, createCommentSchema } from "@memories/shared";
 import { Trash2 } from "lucide-react";
 import { useState, type FormEvent, type RefObject } from "react";
 import { Link } from "react-router";
+import { toast } from "sonner";
 import { useComments } from "../../../application/comment/useComments";
 import type { Comment } from "../../../domain/comment";
 import { ApiError } from "../../../infrastructure/api/http";
@@ -33,6 +34,7 @@ function CommentItem({
     setFailed(false);
     try {
       await onDelete(); // on success this item disappears
+      toast.success("Comment deleted");
     } catch {
       setFailed(true);
       setIsDeleting(false);
@@ -51,7 +53,10 @@ function CommentItem({
             {name}
           </Link>{" "}
           <span className="text-neutral-500">
-            · <time dateTime={comment.createdAt}>{timeAgo(comment.createdAt)}</time>
+            ·{" "}
+            <time dateTime={comment.createdAt}>
+              {timeAgo(comment.createdAt)}
+            </time>
           </span>
         </p>
         <p className="mt-1 whitespace-pre-line break-words text-[15px] leading-relaxed text-neutral-800">

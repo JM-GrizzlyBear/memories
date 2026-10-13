@@ -38,12 +38,13 @@ export function useFriendship(userId: string, initial: FriendshipStatus) {
     },
   });
 
-  async function run(action: FriendAction) {
-    if (mutation.isPending) return;
+  // The new status when it worked; null when it didn't (the error is in `error`)
+  async function run(action: FriendAction): Promise<FriendshipStatus | null> {
+    if (mutation.isPending) return null;
     try {
-      await mutation.mutateAsync(action);
+      return await mutation.mutateAsync(action);
     } catch {
-      // Shown through `error` below
+      return null;
     }
   }
 

@@ -1,23 +1,17 @@
 import { useCallback, useState, type ReactNode } from "react";
-import { useLocation } from "react-router";
+import { toast } from "sonner";
 import type { Memory } from "../../../domain/memory";
 import { DeleteMemoryDialog } from "./DeleteMemoryDialog";
 import { KeepMemoryContext } from "./KeepMemoryContext";
 import { KeepMemoryDialog } from "./KeepMemoryDialog";
 
-interface Notice {
-  text: string;
-  path: string; // the page it belongs to
-}
-
 // The Keep / Edit / Delete dialogs, available on every logged-in page.
-// The lists update themselves (the cache changes); this only opens dialogs and says what happened.
+// The lists update themselves (the cache changes); this opens the dialogs
+// and says what happened with a toast.
 export function KeepMemoryProvider({ children }: { children: ReactNode }) {
-  const location = useLocation();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState<Memory | null>(null);
   const [deleting, setDeleting] = useState<Memory | null>(null);
-  const [notice, setNotice] = useState<Notice | null>(null);
 
   const openKeepMemory = useCallback(() => {
     setEditing(null);
@@ -34,15 +28,13 @@ export function KeepMemoryProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  function say(text: string) {
-    setNotice({ text, path: location.pathname });
-  }
-
   function handleSaved(memory: Memory) {
     if (editing) {
-      say(`"${memory.title}" was updated.`);
+      toast.success("Memory updated", { description: memory.title });
     } else {
-      say(`"${memory.title}" is now in your journal.`);
+      toast.success("Memory kept", {
+        description: `"${memory.title}" is now in your journal.`,
+      });
       window.scrollTo({ top: 0, behavior: "smooth" }); // new memories are at the top
     }
     setIsFormOpen(false);
@@ -50,19 +42,13 @@ export function KeepMemoryProvider({ children }: { children: ReactNode }) {
   }
 
   function handleDeleted(memory: Memory) {
-    say(`"${memory.title}" was deleted.`);
+    toast.success("Memory deleted", { description: memory.title });
     setDeleting(null);
   }
 
   return (
     <KeepMemoryContext.Provider
-      value={{
-        openKeepMemory,
-        openEditMemory,
-        openDeleteMemory,
-        // Moving to another page leaves the notice behind
-        notice: notice?.path === location.pathname ? notice.text : null,
-      }}
+      value={{ openKeepMemory, openEditMemory, openDeleteMemory }}
     >
       {children}
       <KeepMemoryDialog

@@ -1,4 +1,5 @@
 import { updateProfileSchema } from "@memories/shared";
+import { toast } from "sonner";
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useUpdateProfile } from "../../../application/account/useAccountMutations";
 import type { User } from "../../../domain/user";
@@ -6,7 +7,7 @@ import { apiErrorMessages, firstErrors } from "../../format/fieldErrors";
 import { Button } from "../ui/Button";
 import { DateInput } from "../ui/DateInput";
 import { Input } from "../ui/Input";
-import { FormError, FormSuccess } from "./FormMessages";
+import { FormError } from "./FormMessages";
 import { SettingsSection } from "./SettingsSection";
 
 interface ProfileForm {
@@ -50,7 +51,6 @@ export function ProfileDetailsSection({ user }: { user: User }) {
   const [form, setForm] = useState(() => formFromUser(user));
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const saved = formFromUser(user);
   const isChanged = (Object.keys(form) as (keyof ProfileForm)[]).some(
@@ -62,14 +62,12 @@ export function ProfileDetailsSection({ user }: { user: User }) {
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
-    setSuccess(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFieldErrors({});
     setFormError(null);
-    setSuccess(null);
 
     const errors = validate(form);
     if (Object.keys(errors).length > 0) {
@@ -81,7 +79,7 @@ export function ProfileDetailsSection({ user }: { user: User }) {
       // The header and menu show the new name right away
       const updated = await saveProfile.mutateAsync(form);
       setForm(formFromUser(updated));
-      setSuccess("Profile saved.");
+      toast.success("Profile saved");
     } catch (caught) {
       const { fields, form: message } =
         apiErrorMessages<keyof ProfileForm>(caught);
@@ -152,7 +150,6 @@ export function ProfileDetailsSection({ user }: { user: User }) {
           value={form.birthday}
           onChange={(isoDate) => {
             setForm((current) => ({ ...current, birthday: isoDate }));
-            setSuccess(null);
           }}
           error={fieldErrors.birthday}
         />
@@ -171,7 +168,6 @@ export function ProfileDetailsSection({ user }: { user: User }) {
           >
             Save changes
           </Button>
-          <FormSuccess text={success} />
         </div>
       </form>
     </SettingsSection>
