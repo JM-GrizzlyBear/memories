@@ -27,3 +27,53 @@ body {
 body:has(dialog[open]) {
   overflow: hidden;
 }
+
+/* Album: a page turns around the spine. Halfway through the turn (when it stands
+   upright) it moves above or below the other pages, so it never slides behind them. */
+.album-leaf {
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  transition:
+    transform 1.1s cubic-bezier(0.6, 0.05, 0.25, 1),
+    z-index 0s linear 0.55s;
+}
+
+.album-face {
+  backface-visibility: hidden;
+}
+
+/* Phones: the next year slides in from the side it came from */
+@keyframes album-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+@keyframes album-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+}
+.album-from-right {
+  animation: album-from-right 0.35s ease-out;
+}
+.album-from-left {
+  animation: album-from-left 0.35s ease-out;
+}
+
+.album-card {
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.6, 0.05, 0.25, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album-leaf,
+  .album-card {
+    transition: none;
+  }
+  .album-from-right,
+  .album-from-left {
+    animation: none;
+  }
+}

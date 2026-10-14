@@ -1,4 +1,4 @@
-import { LogOut, Settings, UserRound } from "lucide-react";
+import { BookImage, LogOut, Settings, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useAuth } from "../../../application/auth/useAuth";
@@ -92,6 +92,17 @@ export function UserMenu() {
           >
             <UserRound size={16} aria-hidden="true" />
             Your profile
+          </Link>
+
+          <Link
+            to={`/u/${user.username}/album`}
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+            className="flex min-h-11 w-full items-center gap-2.5 rounded px-3 text-left text-sm text-ink transition
+              hover:bg-neutral-100 focus-visible:bg-neutral-100 focus-visible:outline-none"
+          >
+            <BookImage size={16} aria-hidden="true" />
+            Your album
           </Link>
 
           <Link

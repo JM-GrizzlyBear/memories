@@ -40,8 +40,15 @@ export function updateMemoryInCache(
   );
 }
 
+// The albums group memories by year, so a new title, photo or date is easier to
+// load again than to patch in place
+function refreshAlbums(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.albums });
+}
+
 export function replaceMemoryInCache(queryClient: QueryClient, saved: Memory) {
   updateMemoryInCache(queryClient, saved.id, () => saved);
+  refreshAlbums(queryClient);
 }
 
 // A just-kept memory goes on top of the journal and of its author's profile
@@ -70,6 +77,7 @@ export function addMemoryToCache(queryClient: QueryClient, created: Memory) {
     queryKey: queryKeys.journals,
     refetchType: "none",
   });
+  refreshAlbums(queryClient);
 }
 
 export function removeMemoryFromCache(queryClient: QueryClient, id: string) {
@@ -81,4 +89,5 @@ export function removeMemoryFromCache(queryClient: QueryClient, id: string) {
       ),
   );
   queryClient.removeQueries({ queryKey: queryKeys.memory(id) });
+  refreshAlbums(queryClient);
 }

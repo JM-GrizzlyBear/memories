@@ -32,6 +32,10 @@ export default function App() {
             <Route path="/" element={<JournalPage />} />
             <Route path="/friends" element={<FriendsPage />} />
             <Route path="/u/:username" element={<ProfilePage />} />
+            <Route
+              path="/u/:username/album"
+              element={<ProfilePage view="album" />}
+            />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route

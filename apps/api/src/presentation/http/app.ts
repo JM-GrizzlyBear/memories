@@ -9,6 +9,7 @@ interface AppDependencies {
   friendRouter: Router;
   userRouter: Router;
   notificationRouter: Router;
+  albumRouter: Router;
   sessionMiddleware: RequestHandler;
   isProduction: boolean;
   uploadsDir: string;
@@ -22,6 +23,7 @@ export function createApp({
   friendRouter,
   userRouter,
   notificationRouter,
+  albumRouter,
   sessionMiddleware,
   isProduction,
   uploadsDir,
@@ -53,6 +55,7 @@ export function createApp({
   app.use("/api/friends", friendRouter);
   app.use("/api/users", userRouter);
   app.use("/api/notifications", notificationRouter);
+  app.use("/api/album", albumRouter);
   app.use("/api", apiNotFound);
 
   if (webDistDir) {
