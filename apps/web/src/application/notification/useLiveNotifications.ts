@@ -35,6 +35,7 @@ export function useLiveNotifications(
         void queryClient.invalidateQueries({ queryKey: queryKeys.friends });
         void queryClient.invalidateQueries({ queryKey: queryKeys.users });
         void queryClient.invalidateQueries({ queryKey: queryKeys.journals });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.albums });
       }
       if (notification.memory) {
         // New like or comment counts (and the comment itself)

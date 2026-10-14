@@ -12,6 +12,10 @@ export const queryKeys = {
   memory: (id: string) => ["memories", "detail", id] as const,
   comments: (memoryId: string) =>
     ["memories", "detail", memoryId, "comments"] as const,
+  // Under "memories" too: anything that refreshes memories refreshes the albums
+  albums: ["memories", "album"] as const,
+  album: (username: string) =>
+    ["memories", "album", username.toLowerCase()] as const,
 
   friends: ["friends"] as const,
   friendList: ["friends", "list"] as const,

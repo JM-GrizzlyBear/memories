@@ -59,3 +59,12 @@ export function monthYear(iso: string) {
     year: "numeric",
   });
 }
+
+// "May 14", for the album (the year is already on the page). Read in UTC so the day never shifts.
+export function monthDay(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}

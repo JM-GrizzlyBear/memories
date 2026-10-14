@@ -1,5 +1,7 @@
 import "dotenv/config";
 import path from "node:path";
+import { GetAlbum } from "./application/album/GetAlbum.js";
+import { SetAlbumNote } from "./application/album/SetAlbumNote.js";
 import { AddComment } from "./application/comment/AddComment.js";
 import { DeleteComment } from "./application/comment/DeleteComment.js";
 import { ListComments } from "./application/comment/ListComments.js";
@@ -30,6 +32,7 @@ import { SearchUsers } from "./application/user/SearchUsers.js";
 import { SetProfilePhoto } from "./application/user/SetProfilePhoto.js";
 import { UpdateProfile } from "./application/user/UpdateProfile.js";
 import { createPool } from "./infrastructure/database/pool.js";
+import { PostgresAlbumRepository } from "./infrastructure/database/PostgresAlbumRepository.js";
 import { PostgresCommentRepository } from "./infrastructure/database/PostgresCommentRepository.js";
 import { PostgresFriendshipRepository } from "./infrastructure/database/PostgresFriendshipRepository.js";
 import { PostgresLikeRepository } from "./infrastructure/database/PostgresLikeRepository.js";
@@ -44,6 +47,8 @@ import {
   photoStorageKind,
 } from "./infrastructure/storage/createPhotoStorage.js";
 import { AccountController } from "./presentation/http/account/AccountController.js";
+import { AlbumController } from "./presentation/http/album/AlbumController.js";
+import { createAlbumRouter } from "./presentation/http/album/albumRoutes.js";
 import { createAccountRouter } from "./presentation/http/account/accountRoutes.js";
 import { createApp } from "./presentation/http/app.js";
 import { AuthController } from "./presentation/http/auth/AuthController.js";
@@ -96,6 +101,7 @@ const likeRepository = new PostgresLikeRepository(pool);
 const commentRepository = new PostgresCommentRepository(pool);
 const sessionStore = new PostgresSessionStore(pool);
 const notificationRepository = new PostgresNotificationRepository(pool);
+const albumRepository = new PostgresAlbumRepository(pool);
 const realtime = new SocketIoPublisher();
 const notifier = new Notifier(notificationRepository, realtime);
 const memoryAccess = new MemoryAccess(memoryRepository, friendshipRepository);
@@ -158,6 +164,13 @@ const userController = new UserController(
 );
 const userRouter = createUserRouter(userController);
 
+// Album (a profile as a book, one spread per year)
+const albumController = new AlbumController(
+  new GetAlbum(userRepository, albumRepository),
+  new SetAlbumNote(albumRepository),
+);
+const albumRouter = createAlbumRouter(albumController);
+
 // Notifications
 const notificationController = new NotificationController(
   new ListNotifications(notificationRepository),
@@ -174,6 +187,7 @@ const app = createApp({
   friendRouter,
   userRouter,
   notificationRouter,
+  albumRouter,
   sessionMiddleware,
   isProduction,
   uploadsDir,

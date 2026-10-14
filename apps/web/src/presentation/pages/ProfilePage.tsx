@@ -1,8 +1,10 @@
 import { Settings } from "lucide-react";
-import { Link, useParams } from "react-router";
+import { Link, NavLink, useParams } from "react-router";
+import { useAlbum } from "../../application/album/useAlbum";
 import { useJournal } from "../../application/memory/useJournal";
 import { useProfile } from "../../application/user/useProfile";
 import type { FriendshipStatus, Profile } from "../../domain/friendship";
+import { AlbumView } from "../components/album/AlbumView";
 import { FriendshipActions } from "../components/friendship/FriendshipActions";
 import { MemoryList } from "../components/memory/MemoryList";
 import { Avatar } from "../components/user/Avatar";
@@ -41,7 +43,74 @@ function ProfileMemories({ profile }: { profile: Profile }) {
   );
 }
 
-export function ProfilePage() {
+// The same memories as an album, one page per year. Refreshed by friend actions too.
+function ProfileAlbum({ profile }: { profile: Profile }) {
+  const { album, status, retry } = useAlbum(profile.username);
+
+  if (status === "loading") {
+    return (
+      <div className="mt-8 animate-pulse" aria-label="Loading the album">
+        <div className="flex gap-2">
+          <div className="h-11 w-20 rounded-full bg-neutral-200" />
+          <div className="h-11 w-20 rounded-full bg-neutral-200" />
+          <div className="h-11 w-20 rounded-full bg-neutral-200" />
+        </div>
+        <div className="mx-auto mt-10 h-96 max-w-260 rounded-xl bg-neutral-200" />
+      </div>
+    );
+  }
+
+  if (status !== "ready" || !album) {
+    return (
+      <div className="mt-16 flex flex-col items-center text-center">
+        <p className="text-neutral-500">Couldn't load the album.</p>
+        <button
+          type="button"
+          onClick={retry}
+          className="mt-4 h-11 rounded-full border border-neutral-900 px-6 text-sm font-medium transition hover:bg-neutral-100"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  if (album.years.length === 0) {
+    return (
+      <p className="mt-16 text-center text-neutral-500">
+        {emptyText(profile.friendship, profile.firstName)}
+      </p>
+    );
+  }
+
+  return <AlbumView album={album} canEdit={profile.friendship === "self"} />;
+}
+
+// Memories (the list) or Album (the book)
+function ProfileTabs({ username }: { username: string }) {
+  const tab = ({ isActive }: { isActive: boolean }) =>
+    `flex h-11 items-center border-b-2 px-1 text-sm font-medium transition ${
+      isActive
+        ? "border-ink text-ink"
+        : "border-transparent text-neutral-500 hover:text-ink"
+    }`;
+  return (
+    <nav aria-label="Profile" className="flex gap-6 border-b border-line">
+      <NavLink to={`/u/${username}`} end className={tab}>
+        Memories
+      </NavLink>
+      <NavLink to={`/u/${username}/album`} className={tab}>
+        Album
+      </NavLink>
+    </nav>
+  );
+}
+
+export function ProfilePage({
+  view = "memories",
+}: {
+  view?: "memories" | "album";
+}) {
   const { username = "" } = useParams();
   const { profile, status, retry } = useProfile(username);
 
@@ -96,8 +165,12 @@ export function ProfilePage() {
   const friendLabel = profile.friendCount === 1 ? "friend" : "friends";
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-24 pt-10 sm:px-6">
-      <section className="flex flex-col gap-5 border-b border-ink pb-6 sm:flex-row sm:items-center">
+    <main
+      className={`mx-auto px-4 pb-24 pt-10 sm:px-6 ${
+        view === "album" ? "max-w-6xl" : "max-w-3xl"
+      }`}
+    >
+      <section className="flex flex-col gap-5 pb-6 sm:flex-row sm:items-center">
         {/* Photo and name side by side; on phones the buttons get their own row below */}
         <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
           <Avatar user={profile} size="lg" />
@@ -148,7 +221,13 @@ export function ProfilePage() {
         )}
       </section>
 
-      <ProfileMemories key={profile.id} profile={profile} />
+      <ProfileTabs username={profile.username} />
+
+      {view === "album" ? (
+        <ProfileAlbum key={profile.id} profile={profile} />
+      ) : (
+        <ProfileMemories key={profile.id} profile={profile} />
+      )}
     </main>
   );
 }
