@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { useAuth } from "../../application/auth/useAuth";
 import { PasswordSection } from "../components/settings/PasswordSection";
+import { PrivacySection } from "../components/settings/PrivacySection";
 import { ProfileDetailsSection } from "../components/settings/ProfileDetailsSection";
 import { ProfilePhotoSection } from "../components/settings/ProfilePhotoSection";
 
@@ -15,7 +16,7 @@ export function SettingsPage() {
           Settings
         </h1>
         <p className="mt-1 text-neutral-500">
-          Your photo, your details, and your password.{" "}
+          Your photo, your details, privacy, and your password.{" "}
           <Link
             to={`/u/${user.username}`}
             className="text-ink underline underline-offset-4"
@@ -28,6 +29,7 @@ export function SettingsPage() {
       <div className="mt-8 flex flex-col gap-6">
         <ProfilePhotoSection />
         <ProfileDetailsSection user={user} />
+        <PrivacySection current={user.messagePrivacy} />
         <PasswordSection username={user.username} />
       </div>
     </main>

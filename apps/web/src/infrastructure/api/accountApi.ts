@@ -1,3 +1,4 @@
+import type { MessagePrivacy } from "@memories/shared";
 import type { User } from "../../domain/user";
 import { request } from "./http";
 
@@ -42,6 +43,16 @@ export async function uploadProfilePhoto(photo: File): Promise<User> {
 export async function removeProfilePhoto(): Promise<User> {
   const data = await request<{ user: User }>("/account/photo", {
     method: "DELETE",
+  });
+  return data.user;
+}
+
+export async function updateMessagePrivacy(
+  messagePrivacy: MessagePrivacy,
+): Promise<User> {
+  const data = await request<{ user: User }>("/account/privacy", {
+    method: "PUT",
+    body: JSON.stringify({ messagePrivacy }),
   });
   return data.user;
 }

@@ -6,6 +6,7 @@ import { useProfile } from "../../application/user/useProfile";
 import type { FriendshipStatus, Profile } from "../../domain/friendship";
 import { AlbumView } from "../components/album/AlbumView";
 import { FriendshipActions } from "../components/friendship/FriendshipActions";
+import { MessageButton } from "../components/messages/MessageButton";
 import { MemoryList } from "../components/memory/MemoryList";
 import { Avatar } from "../components/user/Avatar";
 import { monthYear } from "../format/dates";
@@ -212,12 +213,16 @@ export function ProfilePage({
             Edit profile
           </Link>
         ) : (
-          <FriendshipActions
-            // The profile reloads after a friend action; a new status starts the buttons fresh
-            key={`${profile.id}-${profile.friendship}`}
-            person={profile}
-            status={profile.friendship}
-          />
+          <div className="flex flex-wrap items-start gap-2 sm:justify-end">
+            <FriendshipActions
+              // The profile reloads after a friend action; a new status starts the buttons fresh
+              key={`${profile.id}-${profile.friendship}`}
+              person={profile}
+              status={profile.friendship}
+            />
+            {/* Only when their "Who can message me?" setting allows it */}
+            {profile.canMessage && <MessageButton userId={profile.id} />}
+          </div>
         )}
       </section>
 

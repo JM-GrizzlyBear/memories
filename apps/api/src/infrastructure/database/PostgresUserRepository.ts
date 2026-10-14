@@ -1,3 +1,4 @@
+import type { MessagePrivacy } from "@memories/shared";
 import type { Pool } from "pg";
 import { UsernameAlreadyTakenError } from "../../domain/user/errors.js";
 import type { User } from "../../domain/user/User.js";
@@ -18,6 +19,7 @@ interface UserRow {
   birthday: string;
   profile_photo_url: string | null;
   profile_photo_key: string | null;
+  message_privacy: MessagePrivacy;
   created_at: Date;
   updated_at: Date;
 }
@@ -33,6 +35,7 @@ function toUser(row: UserRow): User {
     birthday: new Date(`${row.birthday}T00:00:00Z`),
     profilePhotoUrl: row.profile_photo_url,
     profilePhotoKey: row.profile_photo_key,
+    messagePrivacy: row.message_privacy,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -124,6 +127,16 @@ export class PostgresUserRepository implements UserRepository {
        WHERE id = $1
        RETURNING *`,
       [id, photo?.url ?? null, photo?.key ?? null],
+    );
+    return toUser(result.rows[0]);
+  }
+
+  async setMessagePrivacy(id: string, privacy: MessagePrivacy): Promise<User> {
+    const result = await this.pool.query<UserRow>(
+      `UPDATE users SET message_privacy = $2, updated_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [id, privacy],
     );
     return toUser(result.rows[0]);
   }

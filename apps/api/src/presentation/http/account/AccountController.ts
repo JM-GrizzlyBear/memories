@@ -1,8 +1,13 @@
-import { changePasswordSchema, updateProfileSchema } from "@memories/shared";
+import {
+  changePasswordSchema,
+  messagePrivacySchema,
+  updateProfileSchema,
+} from "@memories/shared";
 import type { Request, Response } from "express";
 import { z } from "zod";
 import type { ChangePassword } from "../../../application/user/ChangePassword.js";
 import type { RemoveProfilePhoto } from "../../../application/user/RemoveProfilePhoto.js";
+import type { SetMessagePrivacy } from "../../../application/user/SetMessagePrivacy.js";
 import type { SetProfilePhoto } from "../../../application/user/SetProfilePhoto.js";
 import type { UpdateProfile } from "../../../application/user/UpdateProfile.js";
 import {
@@ -19,6 +24,7 @@ export class AccountController {
     private readonly changePassword: ChangePassword,
     private readonly setProfilePhoto: SetProfilePhoto,
     private readonly removeProfilePhoto: RemoveProfilePhoto,
+    private readonly setMessagePrivacy: SetMessagePrivacy,
   ) {}
 
   /** PATCH /api/account/profile → 200 { user } | 400 | 409 */
@@ -112,6 +118,28 @@ export class AccountController {
     try {
       const user = await this.removeProfilePhoto.execute(
         req.session.userId as string,
+      );
+      res.status(200).json({ user });
+    } catch (error) {
+      if (this.sendIfAccountGone(error, res)) return;
+      throw error;
+    }
+  };
+
+  /** PUT /api/account/privacy { messagePrivacy } → 200 { user } | 400 */
+  updatePrivacy = async (req: Request, res: Response) => {
+    const parsed = messagePrivacySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ errors: z.flattenError(parsed.error).fieldErrors });
+      return;
+    }
+
+    try {
+      const user = await this.setMessagePrivacy.execute(
+        req.session.userId as string,
+        parsed.data.messagePrivacy,
       );
       res.status(200).json({ user });
     } catch (error) {

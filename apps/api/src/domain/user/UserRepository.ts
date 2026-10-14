@@ -1,8 +1,14 @@
+import type { MessagePrivacy } from "@memories/shared";
 import type { User } from "./User.js";
 
 export type NewUser = Omit<
   User,
-  "id" | "createdAt" | "updatedAt" | "profilePhotoUrl" | "profilePhotoKey"
+  | "id"
+  | "createdAt"
+  | "updatedAt"
+  | "profilePhotoUrl"
+  | "profilePhotoKey"
+  | "messagePrivacy"
 >;
 
 export type ProfileUpdate = Pick<
@@ -24,4 +30,5 @@ export interface UserRepository {
   updatePasswordHash(id: string, passwordHash: string): Promise<void>;
   // null removes the photo
   setProfilePhoto(id: string, photo: ProfilePhoto | null): Promise<User>;
+  setMessagePrivacy(id: string, privacy: MessagePrivacy): Promise<User>;
 }

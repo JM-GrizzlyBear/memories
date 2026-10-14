@@ -1,3 +1,5 @@
+import type { MessagePrivacy } from "@memories/shared";
+
 export interface User {
   id: string;
   username: string;
@@ -8,6 +10,7 @@ export interface User {
   birthday: Date;
   profilePhotoUrl: string | null;
   profilePhotoKey: string | null; // where the photo is stored, to delete it later
+  messagePrivacy: MessagePrivacy; // who can message them: "friends" or "anyone"
   createdAt: Date;
   updatedAt: Date;
 }
