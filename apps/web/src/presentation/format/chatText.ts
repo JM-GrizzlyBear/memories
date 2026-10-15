@@ -141,6 +141,21 @@ export function separatorTime(iso: string) {
   return `${day}, ${time}`;
 }
 
+// Everyone in a group, invited ones included ("3 people · 1 invited")
+export function groupSize(conversation: Conversation) {
+  return conversation.members.filter((member) => member.status !== "declined")
+    .length;
+}
+
+export function groupSizeText(conversation: Conversation) {
+  const total = groupSize(conversation);
+  const invited = conversation.members.filter(
+    (member) => member.status === "request",
+  ).length;
+  const people = `${total} ${total === 1 ? "person" : "people"}`;
+  return invited > 0 ? `${people} · ${invited} invited` : people;
+}
+
 export function roleLabel(role: ConversationMember["role"]) {
   return role === "admin" ? "Admin" : role === "moderator" ? "Moderator" : null;
 }

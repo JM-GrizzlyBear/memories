@@ -35,10 +35,11 @@ export class StartChat {
 
   async group(viewerId: string, name: string, memberIds: string[]) {
     const ids = [...new Set(memberIds)].filter((id) => id !== viewerId);
-    if (ids.length < 2) {
+    // 3 people or more, you included; 2 people is a direct chat
+    if (ids.length + 1 < MESSAGE_LIMITS.groupMin) {
       throw new InvalidMessageError(
         "memberIds",
-        "Pick at least 2 people for a group",
+        `A group needs at least ${MESSAGE_LIMITS.groupMin} people, you included`,
       );
     }
     if (ids.length + 1 > MESSAGE_LIMITS.groupMax) {

@@ -6,6 +6,7 @@ export const MESSAGE_LIMITS = {
   maxPhotoBytes: 5 * 1024 * 1024, // 5 MB
   photoTypes: ["image/jpeg", "image/png", "image/webp"],
   editMinutes: 22, // you can change what you wrote for this long
+  groupMin: 3, // a group is 3 people or more (2 people is just a chat)
   groupMax: 57, // people in a group, you included
   groupNameMax: 80,
 } as const;
@@ -45,7 +46,10 @@ export const createGroupSchema = z.object({
   name: groupNameSchema.default(""),
   memberIds: z
     .array(z.uuid())
-    .min(2, "Pick at least 2 people for a group")
+    .min(
+      MESSAGE_LIMITS.groupMin - 1,
+      `A group needs at least ${MESSAGE_LIMITS.groupMin} people, you included`,
+    )
     .max(
       MESSAGE_LIMITS.groupMax - 1,
       `A group holds up to ${MESSAGE_LIMITS.groupMax} people`,

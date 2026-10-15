@@ -18,7 +18,11 @@ import {
   useRealtimeSocket,
 } from "../../../application/realtime/useRealtime";
 import type { Conversation, Message } from "../../../domain/conversation";
-import { conversationTitle, otherMember } from "../../format/chatText";
+import {
+  conversationTitle,
+  groupSizeText,
+  otherMember,
+} from "../../format/chatText";
 import { ChatAvatar } from "./ChatAvatar";
 import { ChatDetailsDialog } from "./ChatDetailsDialog";
 import { Composer } from "./Composer";
@@ -230,7 +234,7 @@ function OpenChat({
 
   const subtitle =
     conversation.kind === "group"
-      ? `${conversation.members.filter((member) => member.status === "accepted").length} people`
+      ? groupSizeText(conversation)
       : other
         ? `@${other.username}`
         : "";

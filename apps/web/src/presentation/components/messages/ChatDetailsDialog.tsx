@@ -29,6 +29,8 @@ import type {
 import {
   conversationTitle,
   fullName,
+  groupSize,
+  groupSizeText,
   otherMember,
   roleLabel,
 } from "../../format/chatText";
@@ -241,7 +243,7 @@ function GroupDetails({
           {conversationTitle(conversation, myId)}
         </h2>
         <p className="text-sm text-neutral-500">
-          {joined.length} {joined.length === 1 ? "person" : "people"} · up to{" "}
+          {groupSizeText(conversation)} · {MESSAGE_LIMITS.groupMin} to{" "}
           {MESSAGE_LIMITS.groupMax}
         </p>
         {isIn && conversation.photoUrl && (
@@ -316,6 +318,14 @@ function GroupDetails({
         >
           People
         </h3>
+        {isIn &&
+          myRole !== "member" &&
+          groupSize(conversation) <= MESSAGE_LIMITS.groupMin && (
+            <p className="mt-1 text-sm text-neutral-500">
+              A group needs at least {MESSAGE_LIMITS.groupMin} people, so add
+              someone before removing anyone.
+            </p>
+          )}
         <ul className="mt-2 divide-y divide-line">
           {people.map((member) => (
             <MemberRow
@@ -324,6 +334,8 @@ function GroupDetails({
               member={member}
               myId={myId}
               myRole={isIn ? myRole : null}
+              // Removing someone can't take the group below 3 people
+              canShrink={groupSize(conversation) > MESSAGE_LIMITS.groupMin}
               onFeedback={setFeedback}
             />
           ))}
@@ -380,6 +392,7 @@ interface MemberRowProps {
   member: ConversationMember;
   myId: string;
   myRole: GroupRole | null; // null = I haven't joined
+  canShrink: boolean;
   onFeedback: (feedback: Feedback) => void;
 }
 
@@ -389,6 +402,7 @@ function MemberRow({
   member,
   myId,
   myRole,
+  canShrink,
   onFeedback,
 }: MemberRowProps) {
   const setRole = useSetMemberRole(conversationId);
@@ -399,10 +413,11 @@ function MemberRow({
   const isInvited = member.status !== "accepted";
   const label = isInvited ? "Invited" : roleLabel(member.role);
   const canChangeRole = myRole === "admin" && !isMe && !isInvited;
-  const canRemove =
+  const mayRemove =
     !isMe &&
     (myRole === "admin" ||
       (myRole === "moderator" && member.role === "member"));
+  const canRemove = mayRemove && canShrink;
 
   async function changeRole(role: GroupRole) {
     onFeedback(null);

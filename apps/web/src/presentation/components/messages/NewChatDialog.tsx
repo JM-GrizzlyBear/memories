@@ -23,7 +23,7 @@ interface NewChatDialogProps {
   onClose: () => void;
 }
 
-// Pick one person for a chat, or several for a group
+// Pick one person for a chat, or two or more for a group (3+ people with you)
 export function NewChatDialog({ open, onClose }: NewChatDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -113,7 +113,8 @@ function NewChatForm({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       <p className="mt-1 text-sm text-neutral-500">
-        Pick one person to chat, or more to start a group. Friends join right
+        Pick 1 person for a chat, or 2 or more for a group (a group is{" "}
+        {MESSAGE_LIMITS.groupMin}+ people, you included). Friends join right
         away; others get a request.
       </p>
 

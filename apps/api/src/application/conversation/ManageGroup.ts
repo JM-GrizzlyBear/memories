@@ -120,6 +120,14 @@ export class ManageGroup {
       );
     }
 
+    // A group stays a group: removing can't leave fewer than 3 people (invited ones count)
+    const count = await this.conversations.countMembers(conversationId);
+    if (count - 1 < MESSAGE_LIMITS.groupMin) {
+      throw new NotAllowedInGroupError(
+        `A group needs at least ${MESSAGE_LIMITS.groupMin} people. Add someone before removing anyone.`,
+      );
+    }
+
     await this.conversations.removeMember(conversationId, targetId);
     await this.say(conversationId, actorId, "removed", targetId);
     await this.events.changed(conversationId, [targetId]);
