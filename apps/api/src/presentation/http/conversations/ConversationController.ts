@@ -17,6 +17,7 @@ import {
   CannotMessageError,
   ConversationNotFoundError,
   InvalidMessageError,
+  LeftGroupError,
   MessageNotFoundError,
   NotAllowedInGroupError,
   RequestNotAcceptedError,
@@ -46,6 +47,7 @@ function sendKnownError(res: Response, error: unknown) {
   if (
     error instanceof CannotMessageError ||
     error instanceof RequestNotAcceptedError ||
+    error instanceof LeftGroupError ||
     error instanceof NotAllowedInGroupError
   ) {
     res.status(403).json({ error: error.message });

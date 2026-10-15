@@ -29,6 +29,18 @@ export class RequestNotAcceptedError extends Error {
   }
 }
 
+// You left the group (or were removed): you can read it, but not write or change it
+export class LeftGroupError extends Error {
+  constructor(status: "left" | "removed") {
+    super(
+      status === "removed"
+        ? "You were removed from this group"
+        : "You left this group",
+    );
+    this.name = "LeftGroupError";
+  }
+}
+
 // Your role doesn't allow it (members removing people, etc.)
 export class NotAllowedInGroupError extends Error {
   constructor(message: string) {

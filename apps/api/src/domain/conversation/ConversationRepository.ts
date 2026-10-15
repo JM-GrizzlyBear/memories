@@ -52,8 +52,9 @@ export interface ConversationRepository {
     conversationId: string,
     userId: string,
   ): Promise<Membership | null>;
+  // Who's in it now (and gets its live updates): not the ones who left or were removed
   memberIds(conversationId: string): Promise<string[]>;
-  countMembers(conversationId: string): Promise<number>; // not counting the ones who declined
+  countMembers(conversationId: string): Promise<number>; // in it now, or invited
   findDirect(userA: string, userB: string): Promise<string | null>;
   counts(userId: string): Promise<{ unread: number; requests: number }>;
   searchPeople(
@@ -74,7 +75,14 @@ export interface ConversationRepository {
     addedBy: string,
     members: NewMember[],
   ): Promise<void>;
+  // Gone completely (someone turning down a group invite)
   removeMember(conversationId: string, userId: string): Promise<void>;
+  // Out of the group, but the chat stays theirs to read up to now
+  markLeft(
+    conversationId: string,
+    userId: string,
+    status: "left" | "removed",
+  ): Promise<void>;
   setStatus(
     conversationId: string,
     userId: string,
@@ -109,10 +117,12 @@ export interface ConversationRepository {
     conversationId: string,
     messageId: string,
   ): Promise<Message | null>;
+  // `until`: someone who left only sees what was sent before they left
   listMessages(
     conversationId: string,
     cursor: MessageCursor | null,
     limit: number,
+    until: Date | null,
   ): Promise<MessagePage>;
   editMessage(messageId: string, body: string): Promise<Message>;
   // Returns the storage keys of its photos, to delete the files

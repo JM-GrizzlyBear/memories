@@ -1,5 +1,9 @@
 import type { ConversationRepository } from "../../domain/conversation/ConversationRepository.js";
-import { NotAllowedInGroupError } from "../../domain/conversation/errors.js";
+import { hasLeft } from "../../domain/conversation/Conversation.js";
+import {
+  LeftGroupError,
+  NotAllowedInGroupError,
+} from "../../domain/conversation/errors.js";
 import type { ConversationEvents } from "./ConversationEvents.js";
 import type { MessagingAccess } from "./MessagingAccess.js";
 
@@ -30,6 +34,9 @@ export class ChatInbox {
   async accept(conversationId: string, userId: string) {
     const membership = await this.access.member(conversationId, userId);
     if (membership.status === "accepted") return;
+    if (hasLeft(membership.status)) {
+      throw new LeftGroupError(membership.status);
+    }
 
     await this.conversations.setStatus(conversationId, userId, "accepted");
     if (membership.kind === "group") {
@@ -46,17 +53,21 @@ export class ChatInbox {
   // Quietly into the archive: nobody else is told
   async decline(conversationId: string, userId: string) {
     const membership = await this.access.member(conversationId, userId);
-    if (membership.status === "accepted") {
+    if (membership.status === "accepted" || hasLeft(membership.status)) {
       throw new NotAllowedInGroupError(
-        "You already accepted this chat. Archive it instead.",
+        "You can't decline this chat. Archive it instead.",
       );
     }
     await this.conversations.setStatus(conversationId, userId, "declined");
     this.events.changedFor(userId, conversationId);
   }
 
+  // Chats you're in, and groups you left, can be archived
   async archive(conversationId: string, userId: string, archived: boolean) {
-    await this.access.activeMember(conversationId, userId);
+    const membership = await this.access.member(conversationId, userId);
+    if (membership.status !== "accepted" && !hasLeft(membership.status)) {
+      throw new NotAllowedInGroupError("Accept or decline this chat first");
+    }
     await this.conversations.setArchived(conversationId, userId, archived);
     this.events.changedFor(userId, conversationId);
   }

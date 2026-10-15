@@ -17,7 +17,11 @@ import {
   useRealtimeEvent,
   useRealtimeSocket,
 } from "../../../application/realtime/useRealtime";
-import type { Conversation, Message } from "../../../domain/conversation";
+import {
+  hasLeft,
+  type Conversation,
+  type Message,
+} from "../../../domain/conversation";
 import {
   conversationTitle,
   groupSizeText,
@@ -114,6 +118,7 @@ function OpenChat({
   const [lastTypingSent, setLastTypingSent] = useState(0);
 
   const isAccepted = conversation.me.status === "accepted";
+  const isOut = hasLeft(conversation.me.status); // left the group, or removed
   const title = conversationTitle(conversation, myId);
   const other =
     conversation.kind === "direct" ? otherMember(conversation, myId) : null;
@@ -270,7 +275,7 @@ function OpenChat({
             </span>
           </span>
         </button>
-        {isAccepted && (
+        {(isAccepted || isOut) && (
           <button
             type="button"
             onClick={toggleArchive}
@@ -349,6 +354,16 @@ function OpenChat({
           onCancelEdit={() => setEditing(null)}
           onTyping={onTyping}
         />
+      ) : isOut ? (
+        // Like Messenger: you keep the chat up to when you left, but can't write in it
+        <p
+          role="status"
+          className="border-t border-line bg-white px-4 py-5 text-center text-sm text-neutral-600"
+        >
+          {conversation.me.status === "removed"
+            ? "You were removed from the group. You can't send messages here anymore."
+            : "You left the group. You can't send messages here anymore."}
+        </p>
       ) : (
         <RequestBar conversation={conversation} myId={myId} />
       )}

@@ -30,11 +30,13 @@ export class ConversationQueries {
     viewerId: string,
     cursor: MessageCursor | null,
   ) {
-    await this.access.member(conversationId, viewerId);
+    // Someone who left keeps what was said until they left, nothing after
+    const membership = await this.access.member(conversationId, viewerId);
     return await this.access.conversations.listMessages(
       conversationId,
       cursor,
       PAGE_SIZE,
+      membership.leftAt,
     );
   }
 

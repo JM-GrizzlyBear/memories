@@ -3,8 +3,18 @@ import type { UserSummary } from "./friendship";
 
 export type ConversationKind = "direct" | "group";
 
-// accepted = in my chats; request = waiting for me to accept; declined = in my archive
-export type MemberStatus = "accepted" | "request" | "declined";
+// accepted = in my chats; request = waiting for me to accept; declined = in my archive;
+// left / removed = out of a group, but it stays in my list up to that moment
+export type MemberStatus =
+  | "accepted"
+  | "request"
+  | "declined"
+  | "left"
+  | "removed";
+
+export function hasLeft(status: MemberStatus) {
+  return status === "left" || status === "removed";
+}
 
 export type ConversationFolder = "inbox" | "requests" | "archive";
 

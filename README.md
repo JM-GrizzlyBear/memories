@@ -18,8 +18,9 @@ Keep a memory (photos + why it mattered), share it with everyone, your friends, 
 - **Friends**: search people, send / cancel / accept / decline requests, unfriend
 - **Profiles** at `/u/username`
 - **Likes and comments** on any memory you can see
-- **Messages**: live chats and groups (3 to 57 people; 2 people is just a chat) with photos, edit (22 minutes), unsend, "Seen", and "typing…"
+- **Messages**: live chats and groups (start one with 3 to 57 people; it stays a group even if people leave) with photos, edit (22 minutes), unsend, "Seen", and "typing…"
   - **Who can message me?** (Settings → Privacy): Friends or Anyone. Non-friends arrive as **requests** you accept or decline; declined chats go to the **Archive**
+  - **Leaving a group** keeps it in your chats with "You left the group" (or "removed you"), readable up to that moment, like Messenger
   - **Group roles**: admins do everything, moderators can remove members, members can chat, add people, rename and change the photo
 
 ### Who can see a memory

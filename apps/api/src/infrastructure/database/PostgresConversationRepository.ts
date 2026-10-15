@@ -85,6 +85,7 @@ interface ConversationRow {
   role: GroupRole;
   archived: boolean;
   last_read_at: Date | null;
+  left_at: Date | null;
   added_by: UserSummary | null;
   unread: boolean;
 }
@@ -104,15 +105,17 @@ interface MemberRow {
 
 // Which of my chats each folder holds
 const FOLDERS: Record<ConversationFolder, string> = {
-  inbox: "me.status = 'accepted' AND NOT me.archived",
+  inbox: "me.status IN ('accepted', 'left', 'removed') AND NOT me.archived",
   requests: "me.status = 'request'",
   archive:
-    "(me.status = 'declined' OR (me.status = 'accepted' AND me.archived))",
+    "(me.status = 'declined' OR (me.status IN ('accepted', 'left', 'removed') AND me.archived))",
 };
 
 const CONVERSATION_SELECT = `
-  SELECT c.id, c.kind, c.name, c.photo_url, c.created_at, c.last_message_at,
-         me.status, me.role, me.archived, me.last_read_at,
+  SELECT c.id, c.kind, c.name, c.photo_url, c.created_at,
+         -- Someone who left sees the chat as it was when they left
+         LEAST(c.last_message_at, me.left_at) AS last_message_at,
+         me.status, me.role, me.archived, me.last_read_at, me.left_at,
          ${userJson("ab")} AS added_by,
          (me.status = 'accepted' AND EXISTS (
             SELECT 1 FROM messages x
@@ -136,7 +139,7 @@ export class PostgresConversationRepository implements ConversationRepository {
     const result = await this.pool.query<ConversationRow>(
       `${CONVERSATION_SELECT}
         WHERE me.user_id = $1 AND c.last_message_at IS NOT NULL AND ${FOLDERS[folder]}
-        ORDER BY c.last_message_at DESC
+        ORDER BY LEAST(c.last_message_at, me.left_at) DESC
         LIMIT $2`,
       [viewerId, limit],
     );
@@ -170,17 +173,21 @@ export class PostgresConversationRepository implements ConversationRepository {
            JOIN users u ON u.id = cm.user_id
           WHERE cm.conversation_id = ANY($1::uuid[])
             -- People who declined a group don't show up in it (except to themselves)
+            AND cm.status NOT IN ('left', 'removed')
             AND (cm.status <> 'declined' OR c.kind = 'direct' OR cm.user_id = $2)
           ORDER BY cm.joined_at`,
         [ids, viewerId],
       ),
       this.pool.query<MessageRow>(
         `${MESSAGE_SELECT}
-          WHERE m.id IN (SELECT DISTINCT ON (conversation_id) id
-                           FROM messages
-                          WHERE conversation_id = ANY($1::uuid[])
-                          ORDER BY conversation_id, created_at DESC, id DESC)`,
-        [ids],
+          WHERE m.id IN (SELECT DISTINCT ON (x.conversation_id) x.id
+                           FROM messages x
+                           JOIN conversation_members v
+                             ON v.conversation_id = x.conversation_id AND v.user_id = $2
+                          WHERE x.conversation_id = ANY($1::uuid[])
+                            AND x.created_at <= COALESCE(v.left_at, 'infinity'::timestamptz)
+                          ORDER BY x.conversation_id, x.created_at DESC, x.id DESC)`,
+        [ids, viewerId],
       ),
     ]);
 
@@ -223,8 +230,10 @@ export class PostgresConversationRepository implements ConversationRepository {
       role: GroupRole;
       archived: boolean;
       joined_at: Date;
+      left_at: Date | null;
     }>(
-      `SELECT cm.conversation_id, c.kind, cm.user_id, cm.status, cm.role, cm.archived, cm.joined_at
+      `SELECT cm.conversation_id, c.kind, cm.user_id, cm.status, cm.role, cm.archived,
+              cm.joined_at, cm.left_at
          FROM conversation_members cm
          JOIN conversations c ON c.id = cm.conversation_id
         WHERE cm.conversation_id = $1 AND cm.user_id = $2`,
@@ -240,12 +249,14 @@ export class PostgresConversationRepository implements ConversationRepository {
       role: row.role,
       archived: row.archived,
       joinedAt: row.joined_at,
+      leftAt: row.left_at,
     };
   }
 
   async memberIds(conversationId: string): Promise<string[]> {
     const result = await this.pool.query<{ user_id: string }>(
-      "SELECT user_id FROM conversation_members WHERE conversation_id = $1",
+      `SELECT user_id FROM conversation_members
+        WHERE conversation_id = $1 AND status NOT IN ('left', 'removed')`,
       [conversationId],
     );
     return result.rows.map((row) => row.user_id);
@@ -254,7 +265,7 @@ export class PostgresConversationRepository implements ConversationRepository {
   async countMembers(conversationId: string): Promise<number> {
     const result = await this.pool.query<{ count: number }>(
       `SELECT count(*)::int AS count FROM conversation_members
-        WHERE conversation_id = $1 AND status <> 'declined'`,
+        WHERE conversation_id = $1 AND status IN ('accepted', 'request')`,
       [conversationId],
     );
     return result.rows[0].count;
@@ -404,10 +415,11 @@ export class PostgresConversationRepository implements ConversationRepository {
         `INSERT INTO conversation_members (conversation_id, user_id, status, role, added_by)
          VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (conversation_id, user_id) DO UPDATE
-           -- Someone who declined before is asked again
+           -- Someone who declined or left before is in (or asked) again
            SET status = EXCLUDED.status, role = EXCLUDED.role, added_by = EXCLUDED.added_by,
-               archived = false, last_read_at = NULL, joined_at = clock_timestamp()
-         WHERE conversation_members.status = 'declined'`,
+               archived = false, last_read_at = NULL, left_at = NULL,
+               joined_at = clock_timestamp()
+         WHERE conversation_members.status IN ('declined', 'left', 'removed')`,
         [
           conversationId,
           member.userId,
@@ -423,6 +435,19 @@ export class PostgresConversationRepository implements ConversationRepository {
     await this.pool.query(
       "DELETE FROM conversation_members WHERE conversation_id = $1 AND user_id = $2",
       [conversationId, userId],
+    );
+  }
+
+  async markLeft(
+    conversationId: string,
+    userId: string,
+    status: "left" | "removed",
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE conversation_members
+          SET status = $3, left_at = clock_timestamp(), role = 'member', archived = false
+        WHERE conversation_id = $1 AND user_id = $2`,
+      [conversationId, userId, status],
     );
   }
 
@@ -594,10 +619,12 @@ export class PostgresConversationRepository implements ConversationRepository {
     conversationId: string,
     cursor: MessageCursor | null,
     limit: number,
+    until: Date | null,
   ): Promise<MessagePage> {
     const result = await this.pool.query<MessageRow>(
       `${MESSAGE_SELECT}
         WHERE m.conversation_id = $1
+          AND ($5::timestamptz IS NULL OR m.created_at <= $5::timestamptz)
           AND ($2::timestamptz IS NULL OR (m.created_at, m.id) < ($2::timestamptz, $3::uuid))
         ORDER BY m.created_at DESC, m.id DESC
         LIMIT $4`,
@@ -606,6 +633,7 @@ export class PostgresConversationRepository implements ConversationRepository {
         cursor?.createdAt ?? null,
         cursor?.id ?? null,
         limit + 1,
+        until,
       ],
     );
     const rows = result.rows.slice(0, limit);

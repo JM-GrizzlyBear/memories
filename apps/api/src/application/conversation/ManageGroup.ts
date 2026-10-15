@@ -1,7 +1,8 @@
 import { MESSAGE_LIMITS, type GroupRole } from "@memories/shared";
-import type {
-  Membership,
-  MessageEvent,
+import {
+  hasLeft,
+  type Membership,
+  type MessageEvent,
 } from "../../domain/conversation/Conversation.js";
 import type { NewMember } from "../../domain/conversation/ConversationRepository.js";
 import {
@@ -106,12 +107,16 @@ export class ManageGroup {
     await this.events.changed(conversationId);
   }
 
-  // Admins remove anyone; moderators remove members; members can only leave
+  // Admins remove anyone; moderators remove members; members can only leave.
+  // Groups can get as small as they like (even just you), like Messenger.
   async remove(conversationId: string, actorId: string, targetId: string) {
     if (actorId === targetId) return await this.leave(conversationId, actorId);
 
     const actor = await this.groupMember(conversationId, actorId);
     const target = await this.access.member(conversationId, targetId);
+    if (hasLeft(target.status) || target.status === "declined") {
+      throw new NotAllowedInGroupError("They're not in this group");
+    }
     if (!canRemoveMember(actor.role, target.role)) {
       throw new NotAllowedInGroupError(
         actor.role === "moderator"
@@ -120,19 +125,20 @@ export class ManageGroup {
       );
     }
 
-    // A group stays a group: removing can't leave fewer than 3 people (invited ones count)
-    const count = await this.conversations.countMembers(conversationId);
-    if (count - 1 < MESSAGE_LIMITS.groupMin) {
-      throw new NotAllowedInGroupError(
-        `A group needs at least ${MESSAGE_LIMITS.groupMin} people. Add someone before removing anyone.`,
-      );
-    }
-
-    await this.conversations.removeMember(conversationId, targetId);
+    // Said first, so they still get the line "Maria removed you"
     await this.say(conversationId, actorId, "removed", targetId);
+    if (target.status === "accepted") {
+      // Their chat stays, up to this moment
+      await this.conversations.markLeft(conversationId, targetId, "removed");
+    } else {
+      // Only invited, never joined: it just disappears for them
+      await this.conversations.removeMember(conversationId, targetId);
+    }
     await this.events.changed(conversationId, [targetId]);
   }
 
+  // Leaving keeps the chat in your list (up to now), with "You left the group".
+  // Turning down an invite just makes it disappear.
   async leave(conversationId: string, userId: string) {
     const membership = await this.access.member(conversationId, userId);
     if (membership.kind !== "group") {
@@ -140,12 +146,14 @@ export class ManageGroup {
         "You can archive a chat, but not leave it",
       );
     }
+    if (hasLeft(membership.status)) return;
 
-    await this.conversations.removeMember(conversationId, userId);
-    // Only say it when they were really in it (not someone turning down an invite)
     if (membership.status === "accepted") {
       await this.say(conversationId, userId, "left");
+      await this.conversations.markLeft(conversationId, userId, "left");
       await this.handOverAdmin(conversationId);
+    } else {
+      await this.conversations.removeMember(conversationId, userId);
     }
     await this.events.changed(conversationId, [userId]);
   }

@@ -1,8 +1,12 @@
-import type { Membership } from "../../domain/conversation/Conversation.js";
+import {
+  hasLeft,
+  type Membership,
+} from "../../domain/conversation/Conversation.js";
 import type { ConversationRepository } from "../../domain/conversation/ConversationRepository.js";
 import {
   CannotMessageError,
   ConversationNotFoundError,
+  LeftGroupError,
   RequestNotAcceptedError,
 } from "../../domain/conversation/errors.js";
 import type { FriendshipRepository } from "../../domain/friendship/FriendshipRepository.js";
@@ -30,6 +34,7 @@ export class MessagingAccess {
   // You're in it AND you accepted it (so you can write, add people, rename...)
   async activeMember(conversationId: string, userId: string) {
     const membership = await this.member(conversationId, userId);
+    if (hasLeft(membership.status)) throw new LeftGroupError(membership.status);
     if (membership.status !== "accepted") throw new RequestNotAcceptedError();
     return membership;
   }

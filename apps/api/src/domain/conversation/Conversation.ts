@@ -5,8 +5,19 @@ export type ConversationKind = "direct" | "group";
 
 // How one person sees a chat:
 //   accepted = in their chats; request = waiting for them to accept;
-//   declined = they said no (it sits in their archive)
-export type MemberStatus = "accepted" | "request" | "declined";
+//   declined = they said no (it sits in their archive);
+//   left / removed = out of a group, but it stays in their list up to that moment
+export type MemberStatus =
+  | "accepted"
+  | "request"
+  | "declined"
+  | "left"
+  | "removed";
+
+// Out of the group: can read what happened until then, nothing after
+export function hasLeft(status: MemberStatus) {
+  return status === "left" || status === "removed";
+}
 
 export type ConversationFolder = "inbox" | "requests" | "archive";
 
@@ -60,6 +71,7 @@ export interface Membership {
   role: GroupRole;
   archived: boolean;
   joinedAt: Date;
+  leftAt: Date | null; // set once they left or were removed
 }
 
 export interface Conversation {
@@ -69,7 +81,7 @@ export interface Conversation {
   photoUrl: string | null;
   createdAt: Date;
   lastMessageAt: Date | null;
-  members: ConversationMember[]; // everyone except the ones who declined a group
+  members: ConversationMember[]; // who's in it now (not the ones who declined or left)
   lastMessage: Message | null;
   me: {
     status: MemberStatus;

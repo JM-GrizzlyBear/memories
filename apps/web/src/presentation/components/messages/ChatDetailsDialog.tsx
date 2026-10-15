@@ -12,8 +12,7 @@ import {
   type FormEvent,
   type SyntheticEvent,
 } from "react";
-import { Link, useNavigate } from "react-router";
-import { toast } from "sonner";
+import { Link } from "react-router";
 import { usePeopleToMessage } from "../../../application/conversation/useConversations";
 import {
   useAddGroupMembers,
@@ -29,7 +28,6 @@ import type {
 import {
   conversationTitle,
   fullName,
-  groupSize,
   groupSizeText,
   otherMember,
   roleLabel,
@@ -142,7 +140,6 @@ function GroupDetails({
   myId,
   onClose,
 }: Omit<ChatDetailsDialogProps, "open">) {
-  const navigate = useNavigate();
   const id = conversation.id;
   const rename = useRenameGroup(id);
   const setPhoto = useSetGroupPhoto(id);
@@ -204,11 +201,8 @@ function GroupDetails({
       async () => await remove.mutateAsync(myId),
       "You left the group",
     );
-    if (left) {
-      onClose();
-      navigate("/messages");
-      toast.success("You left the group"); // the dialog is closed now, so it shows
-    }
+    // Stay in the chat: it now says "You left the group", like Messenger
+    if (left) onClose();
   }
 
   return (
@@ -243,8 +237,7 @@ function GroupDetails({
           {conversationTitle(conversation, myId)}
         </h2>
         <p className="text-sm text-neutral-500">
-          {groupSizeText(conversation)} · {MESSAGE_LIMITS.groupMin} to{" "}
-          {MESSAGE_LIMITS.groupMax}
+          {groupSizeText(conversation)} · up to {MESSAGE_LIMITS.groupMax}
         </p>
         {isIn && conversation.photoUrl && (
           <button
@@ -318,14 +311,6 @@ function GroupDetails({
         >
           People
         </h3>
-        {isIn &&
-          myRole !== "member" &&
-          groupSize(conversation) <= MESSAGE_LIMITS.groupMin && (
-            <p className="mt-1 text-sm text-neutral-500">
-              A group needs at least {MESSAGE_LIMITS.groupMin} people, so add
-              someone before removing anyone.
-            </p>
-          )}
         <ul className="mt-2 divide-y divide-line">
           {people.map((member) => (
             <MemberRow
@@ -334,8 +319,6 @@ function GroupDetails({
               member={member}
               myId={myId}
               myRole={isIn ? myRole : null}
-              // Removing someone can't take the group below 3 people
-              canShrink={groupSize(conversation) > MESSAGE_LIMITS.groupMin}
               onFeedback={setFeedback}
             />
           ))}
@@ -392,7 +375,6 @@ interface MemberRowProps {
   member: ConversationMember;
   myId: string;
   myRole: GroupRole | null; // null = I haven't joined
-  canShrink: boolean;
   onFeedback: (feedback: Feedback) => void;
 }
 
@@ -402,7 +384,6 @@ function MemberRow({
   member,
   myId,
   myRole,
-  canShrink,
   onFeedback,
 }: MemberRowProps) {
   const setRole = useSetMemberRole(conversationId);
@@ -413,11 +394,10 @@ function MemberRow({
   const isInvited = member.status !== "accepted";
   const label = isInvited ? "Invited" : roleLabel(member.role);
   const canChangeRole = myRole === "admin" && !isMe && !isInvited;
-  const mayRemove =
+  const canRemove =
     !isMe &&
     (myRole === "admin" ||
       (myRole === "moderator" && member.role === "member"));
-  const canRemove = mayRemove && canShrink;
 
   async function changeRole(role: GroupRole) {
     onFeedback(null);
