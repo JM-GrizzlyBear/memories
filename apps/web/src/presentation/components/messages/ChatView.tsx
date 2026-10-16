@@ -33,6 +33,7 @@ import { Composer } from "./Composer";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { MessageList } from "./MessageList";
 import { WindowControls } from "./WindowControls";
+import { WindowTitleMenu } from "./WindowTitleMenu";
 import { RequestBar } from "./RequestBar";
 
 const TYPING_SHOWS_MS = 4000;
@@ -286,23 +287,14 @@ function OpenChat({
     >
       {isWindow ? (
         <header className="flex h-14 shrink-0 items-center gap-1 border-b border-line pl-2 pr-1">
-          <button
-            type="button"
-            onClick={() => setDetailsOpen(true)}
-            aria-haspopup="dialog"
-            aria-label={`Details of ${title}`}
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1 pr-1 text-left transition hover:bg-neutral-100"
-          >
-            <ChatAvatar conversation={conversation} myId={myId} size="sm" />
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold">
-                {title}
-              </span>
-              <span className="block truncate text-xs text-neutral-500">
-                {subtitle}
-              </span>
-            </span>
-          </button>
+          <WindowTitleMenu
+            conversation={conversation}
+            myId={myId}
+            title={title}
+            subtitle={subtitle}
+            onDetails={() => setDetailsOpen(true)}
+            onClose={onClose}
+          />
           <WindowControls
             conversationId={conversation.id}
             onMinimize={onMinimize}
