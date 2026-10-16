@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import type { UserSearchResult } from "../../domain/friendship";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { searchUsers } from "../../infrastructure/api/userApi";
+import { useDebouncedValue } from "../common/useDebouncedValue";
+import { queryKeys } from "../query/queryKeys";
 
 const MIN_LENGTH = 2;
 const DELAY_MS = 300; // wait until typing pauses, instead of searching on every key
@@ -8,36 +9,29 @@ const DELAY_MS = 300; // wait until typing pauses, instead of searching on every
 type Status = "idle" | "searching" | "ready" | "error";
 
 export function useUserSearch(text: string) {
-  const query = text.trim();
-  const [results, setResults] = useState<UserSearchResult[]>([]);
-  const [status, setStatus] = useState<Status>("idle");
-  const isTooShort = query.length < MIN_LENGTH;
+  const typed = text.trim();
+  const query = useDebouncedValue(typed, DELAY_MS);
+  const isTooShort = typed.length < MIN_LENGTH || query.length < MIN_LENGTH;
 
-  useEffect(() => {
-    if (isTooShort) return;
+  const search = useQuery({
+    queryKey: queryKeys.userSearch(query),
+    // TanStack Query cancels the request (signal) when a newer search replaces it
+    queryFn: async ({ signal }) => await searchUsers(query, signal),
+    enabled: !isTooShort,
+    placeholderData: keepPreviousData, // keep the last results while the next ones load
+  });
 
-    // A newer search cancels the older one, so old answers can't overwrite new ones
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      setStatus("searching");
-      try {
-        const users = await searchUsers(query, controller.signal);
-        setResults(users);
-        setStatus("ready");
-      } catch {
-        if (!controller.signal.aborted) setStatus("error");
-      }
-    }, DELAY_MS);
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [query, isTooShort]);
+  const status: Status = isTooShort
+    ? "idle"
+    : search.isPending
+      ? "searching"
+      : search.isError
+        ? "error"
+        : "ready";
 
   return {
-    results: isTooShort ? [] : results,
-    status: isTooShort ? "idle" : status,
+    results: isTooShort ? [] : (search.data ?? []),
+    status,
     minLength: MIN_LENGTH,
   };
 }

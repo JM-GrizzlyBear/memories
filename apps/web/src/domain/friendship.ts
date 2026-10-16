@@ -31,4 +31,5 @@ export interface Profile extends UserSummary {
   joinedAt: string;
   friendCount: number;
   friendship: FriendshipStatus;
+  canMessage: boolean; // shows the Message button
 }

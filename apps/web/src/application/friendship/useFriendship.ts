@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { FriendshipStatus } from "../../domain/friendship";
 import {
@@ -8,47 +9,59 @@ import {
   sendFriendRequest,
 } from "../../infrastructure/api/friendApi";
 import { ApiError } from "../../infrastructure/api/http";
-import { announceFriendshipChange } from "./friendshipEvents";
+import { queryKeys } from "../query/queryKeys";
+
+const ACTIONS = {
+  add: sendFriendRequest,
+  cancel: cancelFriendRequest,
+  accept: acceptFriendRequest,
+  decline: declineFriendRequest,
+  unfriend: removeFriend,
+} satisfies Record<string, (userId: string) => Promise<FriendshipStatus>>;
+
+type FriendAction = keyof typeof ACTIONS;
 
 // How I relate to one person, and the actions that change it
-export function useFriendship(
-  userId: string,
-  initial: FriendshipStatus,
-  onChange?: (status: FriendshipStatus) => void,
-) {
+export function useFriendship(userId: string, initial: FriendshipStatus) {
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState(initial);
-  const [isWorking, setIsWorking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function run(action: (id: string) => Promise<FriendshipStatus>) {
-    if (isWorking) return;
-    setIsWorking(true);
-    setError(null);
-    try {
-      const next = await action(userId);
-      setStatus(next);
-      onChange?.(next);
-      announceFriendshipChange();
-    } catch (caught) {
+  const mutation = useMutation({
+    mutationFn: async (action: FriendAction) => await ACTIONS[action](userId),
+    meta: {
       // 404 = it changed in the meantime (they cancelled, or already unfriended)
-      setError(
-        caught instanceof ApiError && caught.status === 404
+      errorMessage: (error) =>
+        error instanceof ApiError && error.status === 404
           ? "This changed in the meantime. Refresh the page to see where things stand."
-          : "Something went wrong. Please try again.",
-      );
-    } finally {
-      setIsWorking(false);
+          : null,
+    },
+    onSuccess: (next) => {
+      setStatus(next);
+      // A friendship changes a lot: the friend lists and the header badge, profiles
+      // and search results, and which "Friends" memories I can see
+      void queryClient.invalidateQueries({ queryKey: queryKeys.friends });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.memories });
+    },
+  });
+
+  // The new status when it worked; null when it didn't (an error toast says why)
+  async function run(action: FriendAction): Promise<FriendshipStatus | null> {
+    if (mutation.isPending) return null;
+    try {
+      return await mutation.mutateAsync(action);
+    } catch {
+      return null;
     }
   }
 
   return {
     status,
-    isWorking,
-    error,
-    add: () => run(sendFriendRequest),
-    cancel: () => run(cancelFriendRequest),
-    accept: () => run(acceptFriendRequest),
-    decline: () => run(declineFriendRequest),
-    unfriend: () => run(removeFriend),
+    isWorking: mutation.isPending,
+    add: () => run("add"),
+    cancel: () => run("cancel"),
+    accept: () => run("accept"),
+    decline: () => run("decline"),
+    unfriend: () => run("unfriend"),
   };
 }

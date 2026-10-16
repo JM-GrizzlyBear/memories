@@ -102,7 +102,6 @@ export function FriendsPage() {
                   key={person.friendship}
                   person={person}
                   status={person.friendship}
-                  onChange={lists.refresh}
                 />
               </PersonRow>
             ))}
@@ -180,11 +179,7 @@ export function FriendsPage() {
                     person={friend}
                     detail={`friends since ${monthYear(friend.friendsSince)}`}
                   >
-                    <FriendshipActions
-                      person={friend}
-                      status="friends"
-                      onChange={lists.refresh}
-                    />
+                    <FriendshipActions person={friend} status="friends" />
                   </PersonRow>
                 ))}
               </ul>
@@ -203,7 +198,6 @@ export function FriendsPage() {
                     <FriendshipActions
                       person={request}
                       status="request_received"
-                      onChange={lists.refresh}
                     />
                   </PersonRow>
                 ))}
@@ -220,11 +214,7 @@ export function FriendsPage() {
               <ul className="divide-y divide-line">
                 {lists.outgoing.map((request) => (
                   <PersonRow key={request.id} person={request}>
-                    <FriendshipActions
-                      person={request}
-                      status="request_sent"
-                      onChange={lists.refresh}
-                    />
+                    <FriendshipActions person={request} status="request_sent" />
                   </PersonRow>
                 ))}
               </ul>

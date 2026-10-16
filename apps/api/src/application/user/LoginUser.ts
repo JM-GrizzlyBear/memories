@@ -1,3 +1,4 @@
+import { toSafeUser } from "../../domain/user/User.js";
 import { InvalidCredentialsError } from "../../domain/user/errors.js";
 import { UserRepository } from "../../domain/user/UserRepository.js";
 import { PasswordHasher } from "../ports/PasswordHasher.js";
@@ -27,8 +28,7 @@ export class LoginUser {
       throw new InvalidCredentialsError();
     }
 
-    const { passwordHash: _, ...safeUser } = user;
-    return safeUser;
+    return toSafeUser(user);
   }
 
   private async findUser(usernameOrEmail: string) {

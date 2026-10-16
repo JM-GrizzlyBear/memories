@@ -1,3 +1,4 @@
+import { toSafeUser } from "../../domain/user/User.js";
 import type { UserRepository } from "../../domain/user/UserRepository.js";
 
 export class GetCurrentUser {
@@ -9,7 +10,6 @@ export class GetCurrentUser {
       return null;
     }
 
-    const { passwordHash: _, ...safeUser } = user;
-    return safeUser;
+    return toSafeUser(user);
   }
 }

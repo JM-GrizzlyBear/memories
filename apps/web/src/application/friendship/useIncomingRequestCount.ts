@@ -1,32 +1,17 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { listFriendRequests } from "../../infrastructure/api/friendApi";
-import { onFriendshipChange } from "./friendshipEvents";
+import { queryKeys } from "../query/queryKeys";
 
-// How many people are waiting for my answer. Checked again whenever `checkAgainKey` changes
-// (the header passes the current page) and right after any friendship change.
-export function useIncomingRequestCount(checkAgainKey: string) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    function check() {
-      listFriendRequests()
-        .then((requests) => {
-          if (!cancelled) setCount(requests.incoming.length);
-        })
-        .catch(() => {
-          // Not important enough to show an error; keep the last count
-        });
-    }
-
-    check();
-    const stopListening = onFriendshipChange(check);
-    return () => {
-      cancelled = true;
-      stopListening();
-    };
-  }, [checkAgainKey]);
-
-  return count;
+// How many people are waiting for my answer (the badge in the header).
+// Shares its data with the Requests list on the Friends page.
+// Checked when the app opens, after my own friend actions, and when I come back
+// to the tab. (Socket.IO will later tell us the moment a request arrives.)
+export function useIncomingRequestCount() {
+  const { data } = useQuery({
+    queryKey: queryKeys.friendRequests,
+    queryFn: async () => await listFriendRequests(),
+    select: (requests) => requests.incoming.length,
+    staleTime: 0, // always look again when I come back to the tab
+  });
+  return data ?? 0;
 }

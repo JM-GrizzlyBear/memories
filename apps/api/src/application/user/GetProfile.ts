@@ -33,6 +33,10 @@ export class GetProfile {
       joinedAt: user.createdAt,
       friendCount,
       friendship: friendshipStatus(friendship, viewerId, user.id),
+      // The Message button: friends, or anyone if they allow it
+      canMessage:
+        viewerId !== user.id &&
+        (friendship?.status === "accepted" || user.messagePrivacy === "anyone"),
     };
   }
 }

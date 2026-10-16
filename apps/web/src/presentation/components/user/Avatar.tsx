@@ -1,9 +1,11 @@
 import type { UserSummary } from "../../../domain/friendship";
 
 const SIZES = {
+  xs: "h-4 w-4 text-[7px]",
   sm: "h-9 w-9 text-xs",
   md: "h-11 w-11 text-sm",
   lg: "h-20 w-20 text-2xl sm:h-24 sm:w-24 sm:text-3xl",
+  xl: "h-28 w-28 text-4xl",
 } as const;
 
 interface AvatarProps {
@@ -30,7 +32,7 @@ export function Avatar({ user, size = "sm" }: AvatarProps) {
   return (
     <span
       aria-hidden="true"
-      className={`${SIZES[size]} flex shrink-0 items-center justify-center rounded-full bg-neutral-300 font-semibold ${size === "lg" ? "font-serif font-normal" : ""}`}
+      className={`${SIZES[size]} flex shrink-0 items-center justify-center rounded-full bg-neutral-300 font-semibold ${size === "lg" || size === "xl" ? "font-serif font-normal" : ""}`}
     >
       {initials}
     </span>

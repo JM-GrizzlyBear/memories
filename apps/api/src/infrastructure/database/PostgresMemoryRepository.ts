@@ -84,8 +84,9 @@ function selectMemoryWithAuthor(viewerParam: string) {
   JOIN users u ON u.id = m.user_id`;
 }
 
-// The memories $1 (the viewer) may see. Keep this in sync with canView() in the domain.
-const VISIBLE_TO_VIEWER = `(
+// The memories $1 (the viewer) may see, for a query where the memory is "m".
+// Keep this in sync with canView() in the domain. (The album uses it too.)
+export const VISIBLE_TO_VIEWER = `(
   m.user_id = $1
   OR m.visibility = 'public'
   OR (m.visibility = 'friends' AND EXISTS (

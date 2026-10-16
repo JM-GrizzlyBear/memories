@@ -1,10 +1,8 @@
 import { Check, UserPlus } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { useFriendship } from "../../../application/friendship/useFriendship";
-import type {
-  FriendshipStatus,
-  UserSummary,
-} from "../../../domain/friendship";
+import type { FriendshipStatus, UserSummary } from "../../../domain/friendship";
 import { UnfriendDialog } from "./UnfriendDialog";
 
 const primary =
@@ -15,7 +13,6 @@ const secondary =
 interface FriendshipActionsProps {
   person: UserSummary;
   status: FriendshipStatus;
-  onChange?: (status: FriendshipStatus) => void;
 }
 
 // The right buttons for how I relate to this person:
@@ -23,12 +20,23 @@ interface FriendshipActionsProps {
 export function FriendshipActions({
   person,
   status: initial,
-  onChange,
 }: FriendshipActionsProps) {
-  const friendship = useFriendship(person.id, initial, onChange);
+  const friendship = useFriendship(person.id, initial);
   const [confirmingUnfriend, setConfirmingUnfriend] = useState(false);
   const name = `${person.firstName} ${person.lastName}`;
   const { status, isWorking } = friendship;
+
+  // Do it, then say what happened
+  async function act(
+    action: () => Promise<FriendshipStatus | null>,
+    message: (next: FriendshipStatus) => string,
+  ) {
+    const next = await action();
+    if (next) toast.success(message(next));
+    return next;
+  }
+
+  const youAreFriends = `You and ${person.firstName} are now friends`;
 
   if (status === "self") return null;
 
@@ -38,7 +46,14 @@ export function FriendshipActions({
         {status === "none" && (
           <button
             type="button"
-            onClick={friendship.add}
+            onClick={() =>
+              act(friendship.add, (next) =>
+                // They had already asked you, so adding them makes you friends
+                next === "friends"
+                  ? youAreFriends
+                  : `Friend request sent to ${name}`,
+              )
+            }
             disabled={isWorking}
             className={primary}
           >
@@ -52,7 +67,12 @@ export function FriendshipActions({
             <span className="text-sm text-neutral-500">Request sent</span>
             <button
               type="button"
-              onClick={friendship.cancel}
+              onClick={() =>
+                act(
+                  friendship.cancel,
+                  () => `Friend request to ${name} cancelled`,
+                )
+              }
               disabled={isWorking}
               aria-label={`Cancel friend request to ${name}`}
               className={secondary}
@@ -66,7 +86,7 @@ export function FriendshipActions({
           <>
             <button
               type="button"
-              onClick={friendship.accept}
+              onClick={() => act(friendship.accept, () => youAreFriends)}
               disabled={isWorking}
               aria-label={`Accept friend request from ${name}`}
               className={primary}
@@ -76,7 +96,12 @@ export function FriendshipActions({
             </button>
             <button
               type="button"
-              onClick={friendship.decline}
+              onClick={() =>
+                act(
+                  friendship.decline,
+                  () => `Friend request from ${name} declined`,
+                )
+              }
               disabled={isWorking}
               aria-label={`Decline friend request from ${name}`}
               className={secondary}
@@ -105,18 +130,15 @@ export function FriendshipActions({
         )}
       </div>
 
-      {friendship.error && (
-        <p role="alert" className="max-w-xs text-sm text-red-600">
-          {friendship.error}
-        </p>
-      )}
-
       <UnfriendDialog
         person={confirmingUnfriend ? person : null}
         isWorking={isWorking}
         onClose={() => setConfirmingUnfriend(false)}
         onConfirm={async () => {
-          await friendship.unfriend();
+          await act(
+            friendship.unfriend,
+            () => `You and ${person.firstName} are no longer friends`,
+          );
           setConfirmingUnfriend(false);
         }}
       />

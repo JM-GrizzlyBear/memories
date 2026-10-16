@@ -1,15 +1,17 @@
 import { useCallback, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import type { Memory } from "../../../domain/memory";
 import { DeleteMemoryDialog } from "./DeleteMemoryDialog";
-import { KeepMemoryContext, type SavedMemory } from "./KeepMemoryContext";
+import { KeepMemoryContext } from "./KeepMemoryContext";
 import { KeepMemoryDialog } from "./KeepMemoryDialog";
 
+// The Keep / Edit / Delete dialogs, available on every logged-in page.
+// The lists update themselves (the cache changes); this opens the dialogs
+// and says what happened with a toast.
 export function KeepMemoryProvider({ children }: { children: ReactNode }) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState<Memory | null>(null);
   const [deleting, setDeleting] = useState<Memory | null>(null);
-  const [lastSaved, setLastSaved] = useState<SavedMemory | null>(null);
-  const [lastDeleted, setLastDeleted] = useState<Memory | null>(null);
 
   const openKeepMemory = useCallback(() => {
     setEditing(null);
@@ -25,32 +27,28 @@ export function KeepMemoryProvider({ children }: { children: ReactNode }) {
     (memory: Memory) => setDeleting(memory),
     [],
   );
-  const clearLastSaved = useCallback(() => setLastSaved(null), []);
-  const clearLastDeleted = useCallback(() => setLastDeleted(null), []);
 
   function handleSaved(memory: Memory) {
-    // The API sends the memory back with its author and counts, ready to show
-    setLastSaved({ memory, mode: editing ? "updated" : "created" });
+    if (editing) {
+      toast.success("Memory updated", { description: memory.title });
+    } else {
+      toast.success("Memory kept", {
+        description: `"${memory.title}" is now in your journal.`,
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" }); // new memories are at the top
+    }
     setIsFormOpen(false);
     setEditing(null);
   }
 
   function handleDeleted(memory: Memory) {
-    setLastDeleted(memory);
+    toast.success("Memory deleted", { description: memory.title });
     setDeleting(null);
   }
 
   return (
     <KeepMemoryContext.Provider
-      value={{
-        openKeepMemory,
-        openEditMemory,
-        openDeleteMemory,
-        lastSaved,
-        clearLastSaved,
-        lastDeleted,
-        clearLastDeleted,
-      }}
+      value={{ openKeepMemory, openEditMemory, openDeleteMemory }}
     >
       {children}
       <KeepMemoryDialog

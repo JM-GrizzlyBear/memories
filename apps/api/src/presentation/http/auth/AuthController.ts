@@ -9,18 +9,7 @@ import {
 } from "../../../domain/user/errors.js";
 import { loginSchema, registerSchema } from "@memories/shared";
 import type { GetCurrentUser } from "../../../application/user/GetCurrentUser.js";
-
-/**
- * Replaces the current session with a brand-new one (new session id).
- * Protects against session fixation: an attacker can't plant a known
- * session id before login and reuse it after the user logs in.
- * express-session uses callbacks, so we wrap it in a Promise to `await` it.
- */
-function regenerateSession(req: Request): Promise<void> {
-  return new Promise((resolve, reject) => {
-    req.session.regenerate((error) => (error ? reject(error) : resolve()));
-  });
-}
+import { regenerateSession } from "../session.js";
 
 export class AuthController {
   constructor(

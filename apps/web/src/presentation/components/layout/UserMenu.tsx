@@ -1,12 +1,15 @@
-import { LogOut, UserRound } from "lucide-react";
+import { Bell, BookImage, LogOut, Settings, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useAuth } from "../../../application/auth/useAuth";
+import { useUnreadNotificationCount } from "../../../application/notification/useNotifications";
+import { Avatar } from "../user/Avatar";
 
 export function UserMenu() {
   const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const unreadNotifications = useUnreadNotificationCount();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -50,9 +53,6 @@ export function UserMenu() {
 
   if (!user) return null;
 
-  const initials =
-    `${user.firstName[0] ?? ""}${user.lastName[0] ?? ""}`.toUpperCase();
-
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -63,10 +63,18 @@ export function UserMenu() {
         aria-expanded={isOpen}
         aria-controls="user-menu"
         aria-label="Account menu"
-        className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-300 text-sm font-semibold text-ink transition
+        className="relative flex h-11 w-11 items-center justify-center rounded-full transition
           hover:ring-2 hover:ring-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900"
       >
-        {initials}
+        <Avatar user={user} size="md" />
+        {/* Phones: Notifications lives in this menu, so a dot says there's something new */}
+        {unreadNotifications > 0 && (
+          <span className="absolute right-0 top-0 h-3 w-3 rounded-full bg-red-700 ring-2 ring-paper sm:hidden">
+            <span className="sr-only">
+              , {unreadNotifications} unread notifications
+            </span>
+          </span>
+        )}
       </button>
 
       {isOpen && (
@@ -94,6 +102,45 @@ export function UserMenu() {
           >
             <UserRound size={16} aria-hidden="true" />
             Your profile
+          </Link>
+
+          <Link
+            to="/notifications"
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+            className="flex min-h-11 w-full items-center gap-2.5 rounded px-3 text-left text-sm text-ink transition
+              hover:bg-neutral-100 focus-visible:bg-neutral-100 focus-visible:outline-none sm:hidden"
+          >
+            <Bell size={16} aria-hidden="true" />
+            Notifications
+            {unreadNotifications > 0 && (
+              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-700 px-1.5 text-xs font-semibold tabular-nums text-white">
+                {unreadNotifications}
+                <span className="sr-only"> unread</span>
+              </span>
+            )}
+          </Link>
+
+          <Link
+            to={`/u/${user.username}/album`}
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+            className="flex min-h-11 w-full items-center gap-2.5 rounded px-3 text-left text-sm text-ink transition
+              hover:bg-neutral-100 focus-visible:bg-neutral-100 focus-visible:outline-none"
+          >
+            <BookImage size={16} aria-hidden="true" />
+            Your album
+          </Link>
+
+          <Link
+            to="/settings"
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+            className="flex min-h-11 w-full items-center gap-2.5 rounded px-3 text-left text-sm text-ink transition
+              hover:bg-neutral-100 focus-visible:bg-neutral-100 focus-visible:outline-none"
+          >
+            <Settings size={16} aria-hidden="true" />
+            Settings
           </Link>
 
           <button

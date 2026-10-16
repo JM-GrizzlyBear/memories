@@ -1,5 +1,6 @@
 import type { LikeRepository } from "../../domain/like/LikeRepository.js";
 import type { MemoryAccess } from "../memory/MemoryAccess.js";
+import type { Notifier } from "../notification/Notifier.js";
 
 export interface LikeMemoryInput {
   memoryId: string;
@@ -12,15 +13,23 @@ export class LikeMemory {
   constructor(
     private readonly access: MemoryAccess,
     private readonly likes: LikeRepository,
+    private readonly notifier: Notifier,
   ) {}
 
   async execute({ memoryId, viewerId, liked }: LikeMemoryInput) {
-    await this.access.findViewable(memoryId, viewerId);
+    const memory = await this.access.findViewable(memoryId, viewerId);
 
     if (liked) {
       await this.likes.add(memoryId, viewerId);
+      await this.notifier.notify({
+        recipientId: memory.userId,
+        actorId: viewerId,
+        type: "memory_liked",
+        memoryId,
+      });
     } else {
       await this.likes.remove(memoryId, viewerId);
+      await this.notifier.withdrawLike(viewerId, memoryId);
     }
 
     return { likedByMe: liked, likeCount: await this.likes.count(memoryId) };

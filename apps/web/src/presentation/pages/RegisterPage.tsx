@@ -2,7 +2,7 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { registerSchema } from "@memories/shared";
 import { z } from "zod";
-import { register } from "../../infrastructure/api/authApi";
+import { useRegister } from "../../application/auth/useAuthMutations";
 import { ApiError } from "../../infrastructure/api/http";
 import { AuthLayout } from "../components/layout/AuthLayout";
 import { Button } from "../components/ui/Button";
@@ -72,7 +72,7 @@ export function RegisterPage() {
   const [form, setForm] = useState(initialForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const registration = useRegister();
 
   // One handler for every input: the input's `name` decides which field updates
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
@@ -93,10 +93,16 @@ export function RegisterPage() {
     }
 
     // 2. Send to the API (which validates again, for security)
-    setIsSubmitting(true);
     try {
-      const { confirmPassword: _, ...input } = form;
-      await register(input);
+      // "Confirm password" stays in the browser; the API never sees it
+      await registration.mutateAsync({
+        firstName: form.firstName,
+        lastName: form.lastName,
+        username: form.username,
+        email: form.email,
+        birthday: form.birthday,
+        password: form.password,
+      });
       navigate("/login");
     } catch (error) {
       if (error instanceof ApiError && error.status === 400) {
@@ -116,9 +122,6 @@ export function RegisterPage() {
         // Network down, API not running, etc.
         setFormError("Something went wrong. Please try again.");
       }
-    } finally {
-      // Always stop loading, success or failure
-      setIsSubmitting(false);
     }
   }
 
@@ -211,7 +214,7 @@ export function RegisterPage() {
           error={fieldErrors.confirmPassword}
         />
 
-        <Button type="submit" isLoading={isSubmitting}>
+        <Button type="submit" isLoading={registration.isPending}>
           Create account
         </Button>
 
