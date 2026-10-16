@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router";
 import { AppLayout } from "./presentation/components/layout/AppLayout";
 import { GuestRoute } from "./presentation/components/routing/GuestRoute";
+import { HomeRoute } from "./presentation/components/routing/HomeRoute";
 import { ProtectedRoute } from "./presentation/components/routing/ProtectedRoute";
 import { FriendsPage } from "./presentation/pages/FriendsPage";
 import { JournalPage } from "./presentation/pages/JournalPage";
@@ -34,11 +35,17 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
         </Route>
 
+        {/* "/": the landing page for visitors, the journal once logged in */}
+        <Route path="/" element={<HomeRoute />}>
+          <Route element={<AppLayout />}>
+            <Route index element={<JournalPage />} />
+          </Route>
+        </Route>
+
         {/* Only for logged-in users */}
         <Route element={<ProtectedRoute />}>
           {/* With the shared header (and the Keep a memory dialog) */}
           <Route element={<AppLayout />}>
-            <Route path="/" element={<JournalPage />} />
             <Route path="/friends" element={<FriendsPage />} />
             <Route path="/u/:username" element={<ProfilePage />} />
             <Route
