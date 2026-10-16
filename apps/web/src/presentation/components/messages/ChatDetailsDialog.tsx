@@ -33,8 +33,23 @@ import {
   roleLabel,
 } from "../../format/chatText";
 import { errorMessage } from "../../format/errorMessage";
+import { Select, type SelectOption } from "../ui/Select";
 import { Avatar } from "../user/Avatar";
 import { ChatAvatar } from "./ChatAvatar";
+
+const ROLE_OPTIONS: SelectOption<GroupRole>[] = [
+  {
+    value: "admin",
+    label: "Admin",
+    description: "Can do everything, including roles",
+  },
+  { value: "moderator", label: "Moderator", description: "Can remove members" },
+  {
+    value: "member",
+    label: "Member",
+    description: "Can chat, add people and rename",
+  },
+];
 
 // Toasts would be hidden behind the open dialog, so results show inside it
 type Feedback = { kind: "ok" | "error"; text: string } | null;
@@ -64,6 +79,8 @@ export function ChatDetailsDialog({
 
   function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
     event.preventDefault(); // Escape: close through React
+    // Escape with a dropdown open closes only the dropdown (it handles that itself)
+    if (dialogRef.current?.querySelector('[role="listbox"]')) return;
     onClose();
   }
 
@@ -443,24 +460,13 @@ function MemberRow({
           </p>
         </div>
         {canChangeRole && (
-          <>
-            <label htmlFor={`role-${member.id}`} className="sr-only">
-              Role of {fullName(member)}
-            </label>
-            <select
-              id={`role-${member.id}`}
-              value={member.role}
-              disabled={setRole.isPending}
-              onChange={(event) =>
-                void changeRole(event.target.value as GroupRole)
-              }
-              className="h-10 rounded-full border border-neutral-300 bg-white px-3 text-sm"
-            >
-              <option value="admin">Admin</option>
-              <option value="moderator">Moderator</option>
-              <option value="member">Member</option>
-            </select>
-          </>
+          <Select
+            label={`Role of ${fullName(member)}`}
+            value={member.role}
+            options={ROLE_OPTIONS}
+            disabled={setRole.isPending}
+            onChange={(role) => void changeRole(role)}
+          />
         )}
         {canRemove && !confirmRemove && (
           <button
