@@ -27,7 +27,10 @@ export function VisibilityPicker({
         {OPTIONS.map((option) => {
           const isSelected = value === option.value;
           return (
-            <label key={option.value} className="cursor-pointer">
+            // "relative" keeps the hidden radio inside its card. Without it the radio
+            // sits at the top of the dialog, and clicking (which focuses it) made the
+            // browser scroll the dialog to show it, pushing the window out of place.
+            <label key={option.value} className="relative cursor-pointer">
               {/* Real radio buttons: arrow keys and screen readers work for free */}
               <input
                 type="radio"
