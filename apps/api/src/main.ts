@@ -40,10 +40,6 @@ import { SearchUsers } from "./application/user/SearchUsers.js";
 import { SetMessagePrivacy } from "./application/user/SetMessagePrivacy.js";
 import { SetProfilePhoto } from "./application/user/SetProfilePhoto.js";
 import { UpdateProfile } from "./application/user/UpdateProfile.js";
-import {
-  migrationsDirectory,
-  warnAboutPendingMigrations,
-} from "./infrastructure/database/checkMigrations.js";
 import { createPool } from "./infrastructure/database/pool.js";
 import { PostgresAlbumRepository } from "./infrastructure/database/PostgresAlbumRepository.js";
 import { PostgresConversationRepository } from "./infrastructure/database/PostgresConversationRepository.js";
@@ -96,7 +92,6 @@ if (!sessionSecret) throw new Error("SESSION_SECRET is missing");
 const pool = createPool(databaseUrl);
 await pool.query("SELECT 1");
 console.log("Connected to database");
-await warnAboutPendingMigrations(pool, migrationsDirectory());
 
 // Infrastructure
 const passwordHasher = new BcryptPasswordHasher();
@@ -148,7 +143,7 @@ const accountController = new AccountController(
   new ChangePassword(userRepository, passwordHasher, sessionStore),
   new SetProfilePhoto(userRepository, photoStorage),
   new RemoveProfilePhoto(userRepository, photoStorage),
-  new SetMessagePrivacy(userRepository, realtime),
+  new SetMessagePrivacy(userRepository),
 );
 const accountRouter = createAccountRouter(accountController);
 

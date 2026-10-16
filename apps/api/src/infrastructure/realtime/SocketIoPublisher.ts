@@ -18,8 +18,4 @@ export class SocketIoPublisher implements RealtimePublisher {
   publish(userId: string, event: string, payload: unknown) {
     this.io?.to(userRoom(userId)).emit(event, payload);
   }
-
-  broadcast(event: string, payload: unknown) {
-    this.io?.emit(event, payload);
-  }
 }
