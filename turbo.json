@@ -14,8 +14,26 @@
       "cache": false,
       "persistent": true
     },
-    "db:new": { "cache": false },
-    "db:migrate": { "cache": false },
-    "db:rollback": { "cache": false }
+    "db:new": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false
+    },
+    "db:rollback": {
+      "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "test:unit": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "cache": false
+    }
   }
 }

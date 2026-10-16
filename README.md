@@ -74,15 +74,20 @@ Memories/
 ├── package.json             # root scripts and the pinned pnpm version
 ├── pnpm-workspace.yaml      # the workspace: apps/* and packages/*
 ├── pnpm-lock.yaml           # exact package versions (commit it, don't edit it)
-├── turbo.json               # Turborepo tasks: build, dev, check-types, db:*
+├── turbo.json               # Turborepo tasks: build, dev, check-types, test, db:*
 ├── .github/workflows/
-│   ├── ci.yml               # type-check + build + Docker build on every PR and on main
+│   ├── ci.yml               # type-check + build + tests + Docker build on every PR and on main
 │   ├── deploy.yml           # manual: deploy to Render
 │   └── clear-cache.yml      # weekly + manual: clear GitHub Actions caches
 ├── apps/
 │   ├── api/                 # Express API (also serves the built website in production)
 │   │   ├── .env.example     # copy to apps/api/.env → the API's settings
 │   │   ├── db/migrations/   # SQL migrations (dbmate), run in order by their date prefix
+│   │   ├── vitest.config.ts # two test projects: unit and integration
+│   │   ├── test/
+│   │   │   ├── unit/                # rules and helpers, no database
+│   │   │   └── integration/         # real HTTP requests against a test database
+│   │   │       └── support/         # test DB setup, seed data, logged-in test clients
 │   │   └── src/
 │   │       ├── domain/              # entities, rules, repository interfaces, errors
 │   │       │   ├── album/  comment/  conversation/  friendship/
@@ -99,7 +104,8 @@ Memories/
 │   │       ├── presentation/
 │   │       │   ├── http/            # controllers + routes per feature, middleware, error handler
 │   │       │   └── realtime/        # Socket.IO server (login cookie, typing)
-│   │       └── main.ts              # wires everything together
+│   │       ├── buildApp.ts          # wires everything together (also used by the tests)
+│   │       └── main.ts              # reads the env, starts the server
 │   └── web/                 # React website (Vite)
 │       ├── index.html
 │       ├── vite.config.ts   # dev server: forwards /api, /uploads and /socket.io to the API
@@ -115,7 +121,7 @@ Memories/
 │           ├── presentation/
 │           │   ├── components/      # album/ comment/ friendship/ layout/ memory/ messages/
 │           │   │                    # notification/ routing/ settings/ ui/ user/
-│           │   ├── format/          # text helpers: dates, chat text, errors, photo URLs
+│           │   ├── format/          # text helpers: dates, chat text, errors, photo URLs (+ their *.test.ts)
 │           │   └── pages/           # one file per page (Journal, Friends, Messages, Profile, ...)
 │           ├── App.tsx              # routes
 │           ├── main.tsx             # React, TanStack Query, auth and toasts start here
@@ -226,6 +232,9 @@ All tabs of one browser share one login. To test as two people at once (chats, f
 | `turbo run dev`                                               | API + website with hot reload                                    |
 | `turbo run build`                                             | Build everything                                                 |
 | `turbo run check-types`                                       | TypeScript checks (what CI runs)                                 |
+| `turbo run test`                                              | All tests (API unit + integration, website unit)                 |
+| `turbo run test:unit`                                         | API unit tests only (no database needed)                         |
+| `turbo run test:integration`                                  | API integration tests only (needs Postgres running)              |
 | `turbo run db:migrate`                                        | Apply new migrations                                             |
 | `turbo run db:rollback`                                       | Undo the last migration                                          |
 | `turbo run db:new --filter=@memories/api -- create_something` | New migration file in `apps/api/db/migrations`                   |
@@ -238,6 +247,49 @@ All tabs of one browser share one login. To test as two people at once (chats, f
 - Never edit a migration that has already run on Neon. Add a new one instead.
 - In production, the Docker image runs `dbmate migrate` automatically on every start.
 - A 500 error right after pulling usually means a migration hasn't run yet: `turbo run db:migrate`.
+
+---
+
+## Tests
+
+Tests use [Vitest](https://vitest.dev). The integration tests send real HTTP requests with [supertest](https://github.com/ladjs/supertest).
+
+```bash
+docker compose up -d db        # integration tests need Postgres
+turbo run test                 # everything
+turbo run test:unit            # API unit tests only, no database
+turbo run test:integration     # API integration tests only
+```
+
+| Suite           | Where                                        | What it checks                                                                                                     |
+| --------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| API unit        | `apps/api/test/unit`                         | Who can view/edit a memory, group roles, the 22-minute edit window, photo type detection, Cloudinary URLs, cursors |
+| API integration | `apps/api/test/integration`                  | Auth, memories and visibility, likes, comments, notifications, friends, album, messages, requests, groups          |
+| Website unit    | `apps/web/src/presentation/format/*.test.ts` | Date, chat text, error message and photo URL helpers                                                               |
+
+### The test database
+
+The integration tests **never touch your real data**. They use a separate database:
+
+- The name is your `DATABASE_URL` database plus `_test` (for example `memories` → `memories_test`), or `TEST_DATABASE_URL` if you set it.
+- Before the tests run, dbmate creates that database (if needed) and applies every migration.
+- **Before every single test**, all tables are emptied and the same seed data is inserted again, so each test starts from the exact same state no matter what the previous test did.
+- As a safety guard, the tests refuse to run unless the database name ends in `_test`.
+
+Seed data (password `password123` for everyone):
+
+| Username | Friends with |
+| -------- | ------------ |
+| `maria`  | ana, ben     |
+| `ana`    | maria        |
+| `ben`    | maria        |
+| `cara`   | nobody       |
+
+Photos go to a temporary folder that is deleted afterwards.
+
+### In CI
+
+The **Tests** job in `ci.yml` starts a `postgres:17` service container and runs `turbo run test` on every PR and on `main`.
 
 ---
 
