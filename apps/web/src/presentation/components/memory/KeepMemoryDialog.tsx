@@ -68,7 +68,9 @@ export function KeepMemoryDialog({
         if (event.target === event.currentTarget) requestClose();
       }}
       aria-labelledby="keep-memory-title"
-      className="m-0 h-dvh max-h-none w-full max-w-none overflow-hidden bg-paper p-0 text-ink backdrop:bg-black/50
+      // overflow-clip (not hidden): the window itself can never be scrolled, so
+      // focusing something inside it can't push the header out of view
+      className="m-0 h-dvh max-h-none w-full max-w-none overflow-clip bg-paper p-0 text-ink backdrop:bg-black/50
         motion-safe:animate-fade-in sm:m-auto sm:h-auto sm:max-h-[90vh] sm:w-[calc(100%-2rem)] sm:max-w-5xl sm:rounded-lg sm:shadow-2xl"
     >
       {/* Only mounted while open, so every opening starts fresh */}

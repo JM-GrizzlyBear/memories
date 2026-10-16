@@ -2,6 +2,14 @@ import "dotenv/config";
 import path from "node:path";
 import { GetAlbum } from "./application/album/GetAlbum.js";
 import { SetAlbumNote } from "./application/album/SetAlbumNote.js";
+import { ChangeMessage } from "./application/conversation/ChangeMessage.js";
+import { ChatInbox } from "./application/conversation/ChatInbox.js";
+import { ConversationEvents } from "./application/conversation/ConversationEvents.js";
+import { ConversationQueries } from "./application/conversation/ConversationQueries.js";
+import { ManageGroup } from "./application/conversation/ManageGroup.js";
+import { MessagingAccess } from "./application/conversation/MessagingAccess.js";
+import { SendMessage } from "./application/conversation/SendMessage.js";
+import { StartChat } from "./application/conversation/StartChat.js";
 import { AddComment } from "./application/comment/AddComment.js";
 import { DeleteComment } from "./application/comment/DeleteComment.js";
 import { ListComments } from "./application/comment/ListComments.js";
@@ -29,10 +37,12 @@ import { LoginUser } from "./application/user/LoginUser.js";
 import { RegisterUser } from "./application/user/RegisterUser.js";
 import { RemoveProfilePhoto } from "./application/user/RemoveProfilePhoto.js";
 import { SearchUsers } from "./application/user/SearchUsers.js";
+import { SetMessagePrivacy } from "./application/user/SetMessagePrivacy.js";
 import { SetProfilePhoto } from "./application/user/SetProfilePhoto.js";
 import { UpdateProfile } from "./application/user/UpdateProfile.js";
 import { createPool } from "./infrastructure/database/pool.js";
 import { PostgresAlbumRepository } from "./infrastructure/database/PostgresAlbumRepository.js";
+import { PostgresConversationRepository } from "./infrastructure/database/PostgresConversationRepository.js";
 import { PostgresCommentRepository } from "./infrastructure/database/PostgresCommentRepository.js";
 import { PostgresFriendshipRepository } from "./infrastructure/database/PostgresFriendshipRepository.js";
 import { PostgresLikeRepository } from "./infrastructure/database/PostgresLikeRepository.js";
@@ -53,6 +63,8 @@ import { createAccountRouter } from "./presentation/http/account/accountRoutes.j
 import { createApp } from "./presentation/http/app.js";
 import { AuthController } from "./presentation/http/auth/AuthController.js";
 import { createAuthRouter } from "./presentation/http/auth/authRoutes.js";
+import { ConversationController } from "./presentation/http/conversations/ConversationController.js";
+import { createConversationRouter } from "./presentation/http/conversations/conversationRoutes.js";
 import { CommentController } from "./presentation/http/comments/CommentController.js";
 import { FriendController } from "./presentation/http/friends/FriendController.js";
 import { createFriendRouter } from "./presentation/http/friends/friendRoutes.js";
@@ -105,6 +117,17 @@ const albumRepository = new PostgresAlbumRepository(pool);
 const realtime = new SocketIoPublisher();
 const notifier = new Notifier(notificationRepository, realtime);
 const memoryAccess = new MemoryAccess(memoryRepository, friendshipRepository);
+const conversationRepository = new PostgresConversationRepository(pool);
+const conversationEvents = new ConversationEvents(
+  conversationRepository,
+  realtime,
+);
+const messagingAccess = new MessagingAccess(
+  conversationRepository,
+  userRepository,
+  friendshipRepository,
+);
+const chatInbox = new ChatInbox(messagingAccess, conversationEvents);
 
 // Auth
 const authController = new AuthController(
@@ -120,6 +143,7 @@ const accountController = new AccountController(
   new ChangePassword(userRepository, passwordHasher, sessionStore),
   new SetProfilePhoto(userRepository, photoStorage),
   new RemoveProfilePhoto(userRepository, photoStorage),
+  new SetMessagePrivacy(userRepository),
 );
 const accountRouter = createAccountRouter(accountController);
 
@@ -151,7 +175,7 @@ const friendController = new FriendController(
   new ListFriendRequests(friendshipRepository),
   new SendFriendRequest(userRepository, friendshipRepository, notifier),
   new CancelFriendRequest(friendshipRepository),
-  new AcceptFriendRequest(friendshipRepository, notifier),
+  new AcceptFriendRequest(friendshipRepository, notifier, chatInbox),
   new DeclineFriendRequest(friendshipRepository),
   new RemoveFriend(friendshipRepository),
 );
@@ -171,6 +195,17 @@ const albumController = new AlbumController(
 );
 const albumRouter = createAlbumRouter(albumController);
 
+// Messages (chats and groups)
+const conversationController = new ConversationController(
+  new ConversationQueries(messagingAccess),
+  new StartChat(messagingAccess, conversationEvents),
+  new SendMessage(messagingAccess, photoStorage, conversationEvents),
+  new ChangeMessage(messagingAccess, photoStorage, conversationEvents),
+  chatInbox,
+  new ManageGroup(messagingAccess, photoStorage, conversationEvents),
+);
+const conversationRouter = createConversationRouter(conversationController);
+
 // Notifications
 const notificationController = new NotificationController(
   new ListNotifications(notificationRepository),
@@ -188,6 +223,7 @@ const app = createApp({
   userRouter,
   notificationRouter,
   albumRouter,
+  conversationRouter,
   sessionMiddleware,
   isProduction,
   uploadsDir,
@@ -198,8 +234,11 @@ const server = app.listen(port, () => {
   console.log(`API running on port ${port}`);
 });
 
-// Live updates (new notifications) over the same server
-const io = createSocketServer(server, sessionMiddleware);
+// Live updates (notifications, messages, typing) over the same server
+const io = createSocketServer(server, sessionMiddleware, {
+  typing: async (userId, conversationId) =>
+    await chatInbox.typing(conversationId, userId),
+});
 realtime.attach(io);
 
 // Render stops old containers with SIGTERM: finish requests, close the DB, exit

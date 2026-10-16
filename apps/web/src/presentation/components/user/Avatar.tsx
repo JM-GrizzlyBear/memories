@@ -1,6 +1,7 @@
 import type { UserSummary } from "../../../domain/friendship";
 
 const SIZES = {
+  xs: "h-4 w-4 text-[7px]",
   sm: "h-9 w-9 text-xs",
   md: "h-11 w-11 text-sm",
   lg: "h-20 w-20 text-2xl sm:h-24 sm:w-24 sm:text-3xl",

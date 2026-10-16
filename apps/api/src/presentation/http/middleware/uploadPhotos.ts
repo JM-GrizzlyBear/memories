@@ -1,4 +1,8 @@
-import { MEMORY_LIMITS, PROFILE_PHOTO_LIMITS } from "@memories/shared";
+import {
+  MEMORY_LIMITS,
+  MESSAGE_LIMITS,
+  PROFILE_PHOTO_LIMITS,
+} from "@memories/shared";
 import type { NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { detectPhotoType } from "./photoSignature.js";
@@ -95,4 +99,13 @@ export const uploadProfilePhoto = createPhotoUpload({
   maxBytes: PROFILE_PHOTO_LIMITS.maxBytes,
   allowedTypes: PROFILE_PHOTO_LIMITS.types,
   tooManyMessage: "Choose one photo",
+});
+
+// A chat message: up to 10 photos in the "photos" field
+export const uploadMessagePhotos = createPhotoUpload({
+  field: "photos",
+  maxFiles: MESSAGE_LIMITS.maxPhotos,
+  maxBytes: MESSAGE_LIMITS.maxPhotoBytes,
+  allowedTypes: MESSAGE_LIMITS.photoTypes,
+  tooManyMessage: `Add at most ${MESSAGE_LIMITS.maxPhotos} photos`,
 });

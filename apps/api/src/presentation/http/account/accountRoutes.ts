@@ -11,6 +11,7 @@ export function createAccountRouter(controller: AccountController) {
   router.put("/password", controller.updatePassword);
   router.put("/photo", uploadProfilePhoto, controller.uploadPhoto);
   router.delete("/photo", controller.deletePhoto);
+  router.put("/privacy", controller.updatePrivacy);
 
   return router;
 }

@@ -26,6 +26,17 @@ export const queryKeys = {
     ["users", "profile", username.toLowerCase()] as const,
   userSearch: (text: string) => ["users", "search", text] as const,
 
+  // Messages: anything under "conversations" refreshes together
+  conversations: ["conversations"] as const,
+  conversationLists: ["conversations", "list"] as const,
+  conversationList: (folder: string) =>
+    ["conversations", "list", folder] as const,
+  messageCounts: ["conversations", "counts"] as const,
+  conversation: (id: string) => ["conversations", "detail", id] as const,
+  messages: (id: string) =>
+    ["conversations", "detail", id, "messages"] as const,
+  messagePeople: (text: string) => ["conversations", "people", text] as const,
+
   notifications: ["notifications"] as const,
   notificationList: ["notifications", "list"] as const,
   unreadNotifications: ["notifications", "unread"] as const,

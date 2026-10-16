@@ -1,8 +1,10 @@
+import type { MessagePrivacy } from "@memories/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "../../domain/user";
 import {
   changePassword,
   removeProfilePhoto,
+  updateMessagePrivacy,
   updateProfile,
   uploadProfilePhoto,
   type PasswordInput,
@@ -41,6 +43,17 @@ export function useRemoveProfilePhoto() {
   return useMutation({
     mutationFn: async () => await removeProfilePhoto(),
     onSuccess: saveMe,
+  });
+}
+
+// Who can message me: only the settings page shows it
+export function useUpdateMessagePrivacy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (privacy: MessagePrivacy) =>
+      await updateMessagePrivacy(privacy),
+    onSuccess: (user) => rememberUser(queryClient, user),
+    meta: { errorMessage: "Couldn't save who can message you. Try again." },
   });
 }
 

@@ -5,7 +5,11 @@ import { ProtectedRoute } from "./presentation/components/routing/ProtectedRoute
 import { FriendsPage } from "./presentation/pages/FriendsPage";
 import { JournalPage } from "./presentation/pages/JournalPage";
 import { LoginPage } from "./presentation/pages/LoginPage";
+import { useRealtimeConnection } from "./application/realtime/useRealtime";
+import { ChatDockProvider } from "./presentation/components/messages/ChatDockProvider";
+import { LiveMessages } from "./presentation/components/messages/LiveMessages";
 import { LiveNotifications } from "./presentation/components/notification/LiveNotifications";
+import { MessagesPage } from "./presentation/pages/MessagesPage";
 import { MemoryViewerPage } from "./presentation/pages/MemoryViewerPage";
 import { NotificationUnavailablePage } from "./presentation/pages/NotificationUnavailablePage";
 import { NotificationsPage } from "./presentation/pages/NotificationsPage";
@@ -14,10 +18,15 @@ import { RegisterPage } from "./presentation/pages/RegisterPage";
 import { SettingsPage } from "./presentation/pages/SettingsPage";
 
 export default function App() {
+  // One live connection while logged in (notifications, messages, typing)
+  useRealtimeConnection();
+
   return (
-    <>
-      {/* New notifications pop up as toasts on every page while logged in */}
+    // Chat windows (bottom right) stay open while moving around the app
+    <ChatDockProvider>
+      {/* New notifications and messages pop up as toasts on every page */}
       <LiveNotifications />
+      <LiveMessages />
       <Routes>
         {/* Only for logged-out visitors */}
         <Route element={<GuestRoute />}>
@@ -38,6 +47,13 @@ export default function App() {
             />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/messages" element={<MessagesPage />} />
+            <Route path="/messages/requests" element={<MessagesPage />} />
+            <Route path="/messages/archive" element={<MessagesPage />} />
+            <Route
+              path="/messages/c/:conversationId"
+              element={<MessagesPage />}
+            />
             <Route
               path="/notifications/unavailable"
               element={<NotificationUnavailablePage />}
@@ -52,6 +68,6 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </>
+    </ChatDockProvider>
   );
 }
