@@ -1,10 +1,9 @@
 import { MESSAGE_LIMITS } from "@memories/shared";
-import { MoreHorizontal, Pencil, Undo2 } from "lucide-react";
-import { useState, type FocusEvent } from "react";
 import type { ConversationMember, Message } from "../../../domain/conversation";
 import { fullName, unsentText } from "../../format/chatText";
 import { thumbnailUrl } from "../../format/photoUrl";
 import { Avatar } from "../user/Avatar";
+import { MessageOptions } from "./MessageOptions";
 
 export interface BubblePlace {
   isMine: boolean;
@@ -74,15 +73,9 @@ export function MessageBubble({
   onUnsend,
   myId,
 }: MessageBubbleProps) {
-  const [menu, setMenu] = useState<{ canEdit: boolean } | null>(null);
   const { isMine } = place;
   const isUnsent = Boolean(message.unsentAt);
   const canAct = isMine && !isUnsent;
-
-  // Clicking anywhere outside the little menu closes it
-  const closeOnBlur = (event: FocusEvent<HTMLDivElement>) => {
-    if (!event.currentTarget.contains(event.relatedTarget)) setMenu(null);
-  };
 
   return (
     <li className={`${place.firstInRun ? "mt-3" : "mt-0.5"}`}>
@@ -104,54 +97,12 @@ export function MessageBubble({
         )}
 
         {canAct && (
-          <div className="relative self-center" onBlur={closeOnBlur}>
-            <button
-              type="button"
-              aria-label="Message options"
-              aria-haspopup="menu"
-              aria-expanded={Boolean(menu)}
-              onClick={() =>
-                setMenu(menu ? null : { canEdit: canStillEdit(message) })
-              }
-              className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 opacity-0 transition hover:bg-neutral-200 hover:text-ink focus:opacity-100 group-hover:opacity-100 aria-expanded:opacity-100 [@media(hover:none)]:opacity-60"
-            >
-              <MoreHorizontal size={18} aria-hidden="true" />
-            </button>
-            {menu && (
-              <div
-                role="menu"
-                className="absolute bottom-10 right-0 z-10 w-44 rounded-lg border border-line bg-white p-1 shadow-lg"
-              >
-                {menu.canEdit && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    autoFocus
-                    onClick={() => {
-                      setMenu(null);
-                      onEdit(message);
-                    }}
-                    className="flex min-h-10 w-full items-center gap-2 rounded px-3 text-left text-sm hover:bg-neutral-100 focus-visible:bg-neutral-100 focus-visible:outline-none"
-                  >
-                    <Pencil size={15} aria-hidden="true" />
-                    Edit
-                  </button>
-                )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  autoFocus={!menu.canEdit}
-                  onClick={() => {
-                    setMenu(null);
-                    onUnsend(message);
-                  }}
-                  className="flex min-h-10 w-full items-center gap-2 rounded px-3 text-left text-sm text-red-700 hover:bg-neutral-100 focus-visible:bg-neutral-100 focus-visible:outline-none"
-                >
-                  <Undo2 size={15} aria-hidden="true" />
-                  Unsend
-                </button>
-              </div>
-            )}
+          <div className="self-center">
+            <MessageOptions
+              canEdit={() => canStillEdit(message)}
+              onEdit={() => onEdit(message)}
+              onUnsend={() => onUnsend(message)}
+            />
           </div>
         )}
 
