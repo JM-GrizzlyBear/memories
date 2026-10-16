@@ -6,6 +6,7 @@ import { FriendsPage } from "./presentation/pages/FriendsPage";
 import { JournalPage } from "./presentation/pages/JournalPage";
 import { LoginPage } from "./presentation/pages/LoginPage";
 import { useRealtimeConnection } from "./application/realtime/useRealtime";
+import { useLiveProfiles } from "./application/user/useLiveProfiles";
 import { ChatDockProvider } from "./presentation/components/messages/ChatDockProvider";
 import { LiveMessages } from "./presentation/components/messages/LiveMessages";
 import { LiveNotifications } from "./presentation/components/notification/LiveNotifications";
@@ -20,6 +21,7 @@ import { SettingsPage } from "./presentation/pages/SettingsPage";
 export default function App() {
   // One live connection while logged in (notifications, messages, typing)
   useRealtimeConnection();
+  useLiveProfiles();
 
   return (
     // Chat windows (bottom right) stay open while moving around the app
