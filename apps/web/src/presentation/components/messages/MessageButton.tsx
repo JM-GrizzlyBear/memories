@@ -1,16 +1,17 @@
 import { MessageCircle } from "lucide-react";
-import { useNavigate } from "react-router";
 import { useStartDirectChat } from "../../../application/conversation/useMessageMutations";
+import { useChatDock } from "./ChatDockContext";
 
-// On a profile: opens your chat with them (or a new one)
+// On a profile: opens your chat with them (or a new one) in a chat window,
+// like Messenger on Facebook (on phones: the chat page)
 export function MessageButton({ userId }: { userId: string }) {
-  const navigate = useNavigate();
+  const dock = useChatDock();
   const start = useStartDirectChat();
 
   async function open() {
     try {
       const conversation = await start.mutateAsync(userId);
-      navigate(`/messages/c/${conversation.id}`);
+      dock.open(conversation.id);
     } catch {
       // The error toast says what went wrong
     }

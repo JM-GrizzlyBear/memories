@@ -5,6 +5,7 @@ import { useAuth } from "../../../application/auth/useAuth";
 import { useLiveMessages } from "../../../application/conversation/useLiveMessages";
 import type { Conversation, Message } from "../../../domain/conversation";
 import { conversationTitle } from "../../format/chatText";
+import { useChatDock } from "./ChatDockContext";
 
 function preview(message: Message) {
   if (message.body) return message.body;
@@ -19,6 +20,7 @@ export function LiveMessages() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const myId = user?.id ?? "";
+  const dock = useChatDock();
 
   const showToast = useCallback(
     (message: Message, conversation: Conversation | null) => {
@@ -28,7 +30,9 @@ export function LiveMessages() {
         !message.sender
       )
         return;
+      // Already looking at it (on the Messages page, or in a chat window)
       if (pathname === `/messages/c/${message.conversationId}`) return;
+      if (dock.isShowing(message.conversationId)) return;
       // Declined chats stay quiet
       if (!conversation || conversation.me.status === "declined") return;
 
@@ -43,11 +47,14 @@ export function LiveMessages() {
         description: preview(message).slice(0, 120),
         action: {
           label: "Open",
-          onClick: () => navigate(`/messages/c/${message.conversationId}`),
+          onClick: () =>
+            pathname.startsWith("/messages")
+              ? navigate(`/messages/c/${message.conversationId}`)
+              : dock.open(message.conversationId),
         },
       });
     },
-    [myId, navigate, pathname],
+    [myId, navigate, pathname, dock],
   );
 
   useLiveMessages(showToast);

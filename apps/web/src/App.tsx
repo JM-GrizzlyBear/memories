@@ -6,6 +6,7 @@ import { FriendsPage } from "./presentation/pages/FriendsPage";
 import { JournalPage } from "./presentation/pages/JournalPage";
 import { LoginPage } from "./presentation/pages/LoginPage";
 import { useRealtimeConnection } from "./application/realtime/useRealtime";
+import { ChatDockProvider } from "./presentation/components/messages/ChatDockProvider";
 import { LiveMessages } from "./presentation/components/messages/LiveMessages";
 import { LiveNotifications } from "./presentation/components/notification/LiveNotifications";
 import { MessagesPage } from "./presentation/pages/MessagesPage";
@@ -21,7 +22,8 @@ export default function App() {
   useRealtimeConnection();
 
   return (
-    <>
+    // Chat windows (bottom right) stay open while moving around the app
+    <ChatDockProvider>
       {/* New notifications and messages pop up as toasts on every page */}
       <LiveNotifications />
       <LiveMessages />
@@ -66,6 +68,6 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </>
+    </ChatDockProvider>
   );
 }

@@ -23,6 +23,7 @@ interface ComposerProps {
   onSaveEdit: (message: Message, body: string) => Promise<boolean>;
   onCancelEdit: () => void;
   onTyping: () => void;
+  autoFocus?: boolean; // start typing right away (chat windows)
 }
 
 const ACCEPT = MESSAGE_LIMITS.photoTypes.join(",");
@@ -42,6 +43,7 @@ export function Composer({
   onSaveEdit,
   onCancelEdit,
   onTyping,
+  autoFocus = false,
 }: ComposerProps) {
   const [text, setText] = useState(editing?.body ?? "");
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
@@ -72,8 +74,8 @@ export function Composer({
   }, [text]);
 
   useEffect(() => {
-    if (editing) textRef.current?.focus();
-  }, [editing]);
+    if (editing || autoFocus) textRef.current?.focus();
+  }, [editing, autoFocus]);
 
   function addFiles(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);

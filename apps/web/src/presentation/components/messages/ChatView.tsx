@@ -32,6 +32,7 @@ import { ChatDetailsDialog } from "./ChatDetailsDialog";
 import { Composer } from "./Composer";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { MessageList } from "./MessageList";
+import { WindowControls } from "./WindowControls";
 import { RequestBar } from "./RequestBar";
 
 const TYPING_SHOWS_MS = 4000;
@@ -46,15 +47,31 @@ function withoutKey(record: Record<string, number>, key: string) {
 interface ChatViewProps {
   conversationId: string;
   myId: string;
+  // "page" = the Messages page; "window" = a small chat window at the bottom right
+  variant?: "page" | "window";
+  onClose?: () => void;
+  onMinimize?: () => void;
 }
 
 // The right side of Messages (or the whole screen on phones): one open chat
-export function ChatView({ conversationId, myId }: ChatViewProps) {
+export function ChatView({
+  conversationId,
+  myId,
+  variant = "page",
+  onClose,
+  onMinimize,
+}: ChatViewProps) {
   const chat = useConversation(conversationId);
+  const isWindow = variant === "window";
 
   if (chat.isGone) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+        {isWindow && (
+          <div className="absolute right-2 top-2">
+            <WindowControls conversationId={conversationId} onClose={onClose} />
+          </div>
+        )}
         <p className="font-serif text-2xl">This chat isn't available</p>
         <p className="mt-1 text-sm text-neutral-500">
           You may have left it, or been removed from it.
@@ -72,9 +89,12 @@ export function ChatView({ conversationId, myId }: ChatViewProps) {
   if (!chat.data) {
     return (
       <div className="flex flex-1 flex-col" aria-label="Loading the chat">
-        <div className="flex h-16 animate-pulse items-center gap-3 border-b border-line px-4">
-          <span className="h-10 w-10 rounded-full bg-neutral-200" />
-          <span className="h-4 w-40 rounded bg-neutral-200" />
+        <div className="flex h-16 items-center gap-3 border-b border-line px-4">
+          <span className="h-10 w-10 animate-pulse rounded-full bg-neutral-200" />
+          <span className="h-4 flex-1 animate-pulse rounded bg-neutral-200" />
+          {isWindow && (
+            <WindowControls conversationId={conversationId} onClose={onClose} />
+          )}
         </div>
         {chat.isError && (
           <div className="m-auto text-center">
@@ -92,15 +112,30 @@ export function ChatView({ conversationId, myId }: ChatViewProps) {
     );
   }
 
-  return <OpenChat key={conversationId} conversation={chat.data} myId={myId} />;
+  return (
+    <OpenChat
+      key={conversationId}
+      conversation={chat.data}
+      myId={myId}
+      isWindow={isWindow}
+      onClose={onClose}
+      onMinimize={onMinimize}
+    />
+  );
 }
 
 function OpenChat({
   conversation,
   myId,
+  isWindow,
+  onClose,
+  onMinimize,
 }: {
   conversation: Conversation;
   myId: string;
+  isWindow: boolean;
+  onClose?: () => void;
+  onMinimize?: () => void;
 }) {
   const id = conversation.id;
   const messagesQuery = useMessages(id);
@@ -249,62 +284,89 @@ function OpenChat({
       aria-label={`Chat with ${title}`}
       className="flex min-h-0 flex-1 flex-col"
     >
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-line px-2 sm:px-4">
-        <Link
-          to={
-            conversation.me.status === "request"
-              ? "/messages/requests"
-              : "/messages"
-          }
-          aria-label="Back to chats"
-          className="flex h-11 w-11 items-center justify-center rounded-full transition hover:bg-neutral-100 lg:hidden"
-        >
-          <ChevronLeft size={22} aria-hidden="true" />
-        </Link>
-        <button
-          type="button"
-          onClick={() => setDetailsOpen(true)}
-          aria-haspopup="dialog"
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-1 pr-2 text-left transition hover:bg-neutral-100 sm:pl-1"
-        >
-          <ChatAvatar conversation={conversation} myId={myId} size="sm" />
-          <span className="min-w-0">
-            <span className="block truncate font-semibold">{title}</span>
-            <span className="block truncate text-xs text-neutral-500">
-              {subtitle}
-            </span>
-          </span>
-        </button>
-        {(isAccepted || isOut) && (
+      {isWindow ? (
+        <header className="flex h-14 shrink-0 items-center gap-1 border-b border-line pl-2 pr-1">
           <button
             type="button"
-            onClick={toggleArchive}
-            disabled={archive.isPending}
-            aria-label={
-              conversation.me.archived ? "Move back to chats" : "Archive chat"
+            onClick={() => setDetailsOpen(true)}
+            aria-haspopup="dialog"
+            aria-label={`Details of ${title}`}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1 pr-1 text-left transition hover:bg-neutral-100"
+          >
+            <ChatAvatar conversation={conversation} myId={myId} size="sm" />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold">
+                {title}
+              </span>
+              <span className="block truncate text-xs text-neutral-500">
+                {subtitle}
+              </span>
+            </span>
+          </button>
+          <WindowControls
+            conversationId={conversation.id}
+            onMinimize={onMinimize}
+            onClose={onClose}
+          />
+        </header>
+      ) : (
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-line px-2 sm:px-4">
+          <Link
+            to={
+              conversation.me.status === "request"
+                ? "/messages/requests"
+                : "/messages"
             }
-            title={
-              conversation.me.archived ? "Move back to chats" : "Archive chat"
-            }
+            aria-label="Back to chats"
+            className="flex h-11 w-11 items-center justify-center rounded-full transition hover:bg-neutral-100 lg:hidden"
+          >
+            <ChevronLeft size={22} aria-hidden="true" />
+          </Link>
+          <button
+            type="button"
+            onClick={() => setDetailsOpen(true)}
+            aria-haspopup="dialog"
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-1 pr-2 text-left transition hover:bg-neutral-100 sm:pl-1"
+          >
+            <ChatAvatar conversation={conversation} myId={myId} size="sm" />
+            <span className="min-w-0">
+              <span className="block truncate font-semibold">{title}</span>
+              <span className="block truncate text-xs text-neutral-500">
+                {subtitle}
+              </span>
+            </span>
+          </button>
+          {(isAccepted || isOut) && (
+            <button
+              type="button"
+              onClick={toggleArchive}
+              disabled={archive.isPending}
+              aria-label={
+                conversation.me.archived ? "Move back to chats" : "Archive chat"
+              }
+              title={
+                conversation.me.archived ? "Move back to chats" : "Archive chat"
+              }
+              className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-600 transition hover:bg-neutral-100 hover:text-ink"
+            >
+              {conversation.me.archived ? (
+                <ArchiveRestore size={20} aria-hidden="true" />
+              ) : (
+                <Archive size={20} aria-hidden="true" />
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setDetailsOpen(true)}
+            aria-label="Chat details"
+            aria-haspopup="dialog"
             className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-600 transition hover:bg-neutral-100 hover:text-ink"
           >
-            {conversation.me.archived ? (
-              <ArchiveRestore size={20} aria-hidden="true" />
-            ) : (
-              <Archive size={20} aria-hidden="true" />
-            )}
+            <Info size={20} aria-hidden="true" />
           </button>
-        )}
-        <button
-          type="button"
-          onClick={() => setDetailsOpen(true)}
-          aria-label="Chat details"
-          aria-haspopup="dialog"
-          className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-600 transition hover:bg-neutral-100 hover:text-ink"
-        >
-          <Info size={20} aria-hidden="true" />
-        </button>
-      </header>
+        </header>
+      )}
 
       {messagesQuery.isPending ? (
         <div className="flex flex-1 items-center justify-center text-sm text-neutral-500">
@@ -353,6 +415,7 @@ function OpenChat({
           onSaveEdit={onSaveEdit}
           onCancelEdit={() => setEditing(null)}
           onTyping={onTyping}
+          autoFocus={isWindow}
         />
       ) : isOut ? (
         // Like Messenger: you keep the chat up to when you left, but can't write in it
