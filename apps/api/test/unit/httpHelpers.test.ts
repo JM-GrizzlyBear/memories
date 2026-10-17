@@ -7,27 +7,22 @@ import {
 } from "../../src/presentation/http/cursor.js";
 import { detectPhotoType } from "../../src/presentation/http/middleware/photoSignature.js";
 import { parseId } from "../../src/presentation/http/parseId.js";
+import {
+  JPG_BYTES,
+  NOT_A_PHOTO,
+  PNG_BYTES,
+  WEBP_BYTES,
+} from "../fixtures/photos.js";
 
 describe("photo type from the file's first bytes", () => {
   it("recognizes JPG, PNG and WebP", () => {
-    expect(detectPhotoType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe(
-      "image/jpeg",
-    );
-    expect(
-      detectPhotoType(
-        new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-      ),
-    ).toBe("image/png");
-    const webp = new Uint8Array([
-      0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50,
-    ]);
-    expect(detectPhotoType(webp)).toBe("image/webp");
+    expect(detectPhotoType(new Uint8Array(JPG_BYTES))).toBe("image/jpeg");
+    expect(detectPhotoType(new Uint8Array(PNG_BYTES))).toBe("image/png");
+    expect(detectPhotoType(new Uint8Array(WEBP_BYTES))).toBe("image/webp");
   });
 
   it("rejects anything else, whatever its name says", () => {
-    expect(
-      detectPhotoType(new TextEncoder().encode("MZ fake.exe renamed to .jpg")),
-    ).toBeNull();
+    expect(detectPhotoType(new Uint8Array(NOT_A_PHOTO))).toBeNull();
   });
 });
 

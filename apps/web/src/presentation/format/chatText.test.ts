@@ -1,74 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type {
-  Conversation,
-  ConversationMember,
-  Message,
-} from "../../domain/conversation";
 import {
   conversationTitle,
   groupSizeText,
   previewText,
   systemText,
 } from "./chatText";
-
-const ME = "me";
-
-function person(
-  id: string,
-  firstName: string,
-  status: ConversationMember["status"] = "accepted",
-): ConversationMember {
-  return {
-    id,
-    username: firstName.toLowerCase(),
-    firstName,
-    lastName: "Test",
-    profilePhotoUrl: null,
-    status,
-    role: "member",
-    joinedAt: "2026-10-17T00:00:00Z",
-    lastReadAt: null,
-  };
-}
-
-function message(overrides: Partial<Message>): Message {
-  return {
-    id: "m",
-    conversationId: "c",
-    sender: person(ME, "Me"),
-    kind: "text",
-    body: "",
-    event: null,
-    target: null,
-    photos: [],
-    createdAt: "2026-10-17T00:00:00Z",
-    editedAt: null,
-    unsentAt: null,
-    ...overrides,
-  };
-}
-
-function chat(overrides: Partial<Conversation>): Conversation {
-  return {
-    id: "c",
-    kind: "group",
-    name: null,
-    photoUrl: null,
-    createdAt: "2026-10-17T00:00:00Z",
-    lastMessageAt: null,
-    members: [person(ME, "Me")],
-    lastMessage: null,
-    me: {
-      status: "accepted",
-      role: "member",
-      archived: false,
-      lastReadAt: null,
-      addedBy: null,
-    },
-    unread: false,
-    ...overrides,
-  };
-}
+import {
+  AT,
+  chat,
+  ME,
+  message,
+  person,
+} from "../../test/fixtures/conversations";
 
 describe("chat names", () => {
   it("a direct chat is the other person's name", () => {
@@ -171,10 +114,7 @@ describe("the preview line in the list", () => {
       "You sent 2 photos",
     );
     expect(
-      previewText(
-        chat({ lastMessage: message({ unsentAt: "2026-10-17T00:00:00Z" }) }),
-        ME,
-      ),
+      previewText(chat({ lastMessage: message({ unsentAt: AT }) }), ME),
     ).toBe("You unsent a message");
   });
 });

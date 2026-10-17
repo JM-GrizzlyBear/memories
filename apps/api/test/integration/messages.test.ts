@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { USERS } from "./support/seed.js";
-import { JPG, useTestApp } from "./support/testApp.js";
+import { JPG, JPG_FILE } from "../fixtures/photos.js";
+import { useTestApp } from "./support/testApp.js";
 
 const t = useTestApp();
 
@@ -178,7 +179,7 @@ describe("editing and unsending", () => {
     const withPhoto = await maria
       .post(`/api/conversations/${id}/messages`)
       .field("body", "look")
-      .attach("photos", JPG, { filename: "a.jpg", contentType: "image/jpeg" });
+      .attach("photos", JPG, JPG_FILE);
     expect(withPhoto.body.message.photos).toHaveLength(1);
 
     const unsent = await maria.delete(

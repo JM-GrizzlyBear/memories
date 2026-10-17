@@ -11,11 +11,6 @@ import { LocalPhotoStorage } from "../../../src/infrastructure/storage/LocalPhot
 import { PASSWORD, resetDatabase, type Username } from "./seed.js";
 import { testDatabaseUrl } from "./testDatabase.js";
 
-// A tiny file that passes the JPG check (it starts with the JPG signature)
-export const JPG = Buffer.from([
-  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46,
-]);
-
 export interface TestContext {
   pool: Pool;
   app: ReturnType<typeof buildApp>["app"];

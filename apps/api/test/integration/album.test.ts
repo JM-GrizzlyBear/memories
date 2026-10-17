@@ -1,26 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { JPG, useTestApp } from "./support/testApp.js";
+import { ALBUM_MEMORIES } from "../fixtures/memories.js";
+import { JPG, JPG_FILE } from "../fixtures/photos.js";
+import { withMemoryFields } from "./support/forms.js";
+import { useTestApp } from "./support/testApp.js";
 
 const t = useTestApp();
 
 describe("album", () => {
   it("groups the memories you can see by year, newest first, with the owner's line", async () => {
     const maria = await t.as("maria");
-    for (const [title, date, visibility] of [
-      ["Graduation", "2024-06-21", "public"],
-      ["Moving day", "2025-11-30", "public"],
-      ["Diary", "2025-02-14", "private"],
-    ] as const) {
-      await maria
-        .post("/api/memories")
-        .field("title", title)
-        .field("story", "x")
-        .field("memoryDate", date)
-        .field("visibility", visibility)
-        .attach("photos", JPG, {
-          filename: "p.jpg",
-          contentType: "image/jpeg",
-        });
+    for (const fields of ALBUM_MEMORIES) {
+      await withMemoryFields(maria.post("/api/memories"), fields).attach(
+        "photos",
+        JPG,
+        JPG_FILE,
+      );
     }
     await maria.put("/api/album/notes/2025").send({ note: "A big year." });
 

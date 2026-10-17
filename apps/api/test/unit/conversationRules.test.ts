@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Message } from "../../src/domain/conversation/Conversation.js";
 import {
   canEditMessage,
   canRemoveMember,
@@ -7,29 +6,7 @@ import {
   canUnsendMessage,
   directKey,
 } from "../../src/domain/conversation/rules.js";
-
-function message(overrides: Partial<Message> = {}): Message {
-  return {
-    id: "m1",
-    conversationId: "c1",
-    sender: {
-      id: "me",
-      username: "me",
-      firstName: "Me",
-      lastName: "Too",
-      profilePhotoUrl: null,
-    },
-    kind: "text",
-    body: "hello",
-    event: null,
-    target: null,
-    photos: [],
-    createdAt: new Date("2026-10-17T10:00:00Z"),
-    editedAt: null,
-    unsentAt: null,
-    ...overrides,
-  };
-}
+import { message, SENT_AT as sentAt } from "../fixtures/messages.js";
 
 describe("group roles", () => {
   it("admins remove anyone", () => {
@@ -59,8 +36,6 @@ describe("editing a message", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
-
-  const sentAt = new Date("2026-10-17T10:00:00Z");
 
   it("works for your own text within 22 minutes", () => {
     const at = new Date(sentAt.getTime() + 22 * 60_000);

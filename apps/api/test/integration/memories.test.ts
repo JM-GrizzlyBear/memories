@@ -1,26 +1,19 @@
 import { describe, expect, it } from "vitest";
+import { memoryFields, type Visibility } from "../fixtures/memories.js";
+import { JPG, JPG_FILE, NOT_A_PHOTO } from "../fixtures/photos.js";
+import { withMemoryFields } from "./support/forms.js";
 import { USERS } from "./support/seed.js";
-import { JPG, useTestApp } from "./support/testApp.js";
+import { useTestApp } from "./support/testApp.js";
 
 const t = useTestApp();
 
 type Agent = Awaited<ReturnType<typeof t.as>>;
 
-async function keepMemory(
-  agent: Agent,
-  title: string,
-  visibility: "public" | "friends" | "private",
-) {
-  const response = await agent
-    .post("/api/memories")
-    .field("title", title)
-    .field("story", "A day to remember.")
-    .field("memoryDate", "2024-05-14")
-    .field("visibility", visibility)
-    .attach("photos", JPG, {
-      filename: "photo.jpg",
-      contentType: "image/jpeg",
-    });
+async function keepMemory(agent: Agent, title: string, visibility: Visibility) {
+  const response = await withMemoryFields(
+    agent.post("/api/memories"),
+    memoryFields({ title, visibility }),
+  ).attach("photos", JPG, JPG_FILE);
   expect(response.status).toBe(201);
   return response.body.memory as { id: string; title: string };
 }
@@ -36,28 +29,20 @@ async function journalTitles(agent: Agent) {
 describe("keeping a memory", () => {
   it("needs at least one photo", async () => {
     const maria = await t.as("maria");
-    const response = await maria
-      .post("/api/memories")
-      .field("title", "No photos")
-      .field("story", "Oops")
-      .field("memoryDate", "2024-05-14")
-      .field("visibility", "public");
+    const response = await withMemoryFields(
+      maria.post("/api/memories"),
+      memoryFields(),
+    );
     expect(response.status).toBe(400);
     expect(response.body.errors).toHaveProperty("photos");
   });
 
   it("refuses a file that isn't really a photo", async () => {
     const maria = await t.as("maria");
-    const response = await maria
-      .post("/api/memories")
-      .field("title", "Fake")
-      .field("story", "Not a photo")
-      .field("memoryDate", "2024-05-14")
-      .field("visibility", "public")
-      .attach("photos", Buffer.from("MZ this is not a jpg"), {
-        filename: "virus.jpg",
-        contentType: "image/jpeg",
-      });
+    const response = await withMemoryFields(
+      maria.post("/api/memories"),
+      memoryFields(),
+    ).attach("photos", NOT_A_PHOTO, JPG_FILE);
     expect(response.status).toBe(400);
   });
 });
@@ -108,17 +93,12 @@ describe("changing a memory", () => {
     const ana = await t.as("ana");
 
     // A complete, valid edit: refused only because Ana isn't the owner
-    const edit = await ana
-      .patch(`/api/memories/${memory.id}`)
-      .field("title", "Hacked")
-      .field("story", "Not mine")
-      .field("memoryDate", "2024-05-14")
-      .field("visibility", "public")
+    const edit = await withMemoryFields(
+      ana.patch(`/api/memories/${memory.id}`),
+      memoryFields({ title: "Hacked" }),
+    )
       .field("photoOrder", JSON.stringify([{ kind: "new", index: 0 }]))
-      .attach("photos", JPG, {
-        filename: "photo.jpg",
-        contentType: "image/jpeg",
-      });
+      .attach("photos", JPG, JPG_FILE);
     expect(edit.status).toBe(403);
     expect((await ana.delete(`/api/memories/${memory.id}`)).status).toBe(403);
 

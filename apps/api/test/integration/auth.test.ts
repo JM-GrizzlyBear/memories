@@ -1,23 +1,15 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
+import { NEW_USER } from "../fixtures/users.js";
 import { useTestApp } from "./support/testApp.js";
 
 const t = useTestApp();
-
-const newUser = {
-  username: "dana",
-  email: "dana@example.com",
-  password: "a-good-password",
-  firstName: "Dana",
-  lastName: "Uy",
-  birthday: "2000-01-10",
-};
 
 describe("register", () => {
   it("creates an account you can log in with", async () => {
     const response = await request(t.app)
       .post("/api/auth/register")
-      .send(newUser);
+      .send(NEW_USER);
     expect(response.status).toBe(201);
     // New people only take messages from friends until they change it
     expect(response.body.user).toMatchObject({
@@ -30,7 +22,7 @@ describe("register", () => {
     const agent = request.agent(t.app);
     const login = await agent
       .post("/api/auth/login")
-      .send({ usernameOrEmail: "dana", password: newUser.password });
+      .send({ usernameOrEmail: "dana", password: NEW_USER.password });
     expect(login.status).toBe(200);
     const me = await agent.get("/api/auth/me");
     expect(me.status).toBe(200);
@@ -40,14 +32,14 @@ describe("register", () => {
   it("refuses a username that's taken", async () => {
     const response = await request(t.app)
       .post("/api/auth/register")
-      .send({ ...newUser, username: "maria" });
+      .send({ ...NEW_USER, username: "maria" });
     expect(response.status).toBe(409);
   });
 
   it("checks the fields", async () => {
     const response = await request(t.app)
       .post("/api/auth/register")
-      .send({ ...newUser, email: "not-an-email", password: "short" });
+      .send({ ...NEW_USER, email: "not-an-email", password: "short" });
     expect(response.status).toBe(400);
     expect(response.body.errors).toHaveProperty("email");
     expect(response.body.errors).toHaveProperty("password");
