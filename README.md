@@ -85,6 +85,7 @@ Memories/
 │   │   ├── db/migrations/   # SQL migrations (dbmate), run in order by their date prefix
 │   │   ├── vitest.config.ts # two test projects: unit and integration
 │   │   ├── test/
+│   │   │   ├── fixtures/            # test data: photos, users, memories, messages
 │   │   │   ├── unit/                # rules and helpers, no database
 │   │   │   └── integration/         # real HTTP requests against a test database
 │   │   │       └── support/         # test DB setup, seed data, logged-in test clients
@@ -123,6 +124,7 @@ Memories/
 │           │   │                    # notification/ routing/ settings/ ui/ user/
 │           │   ├── format/          # text helpers: dates, chat text, errors, photo URLs (+ their *.test.ts)
 │           │   └── pages/           # one file per page (Journal, Friends, Messages, Profile, ...)
+│           ├── test/fixtures/       # test data for the website's tests
 │           ├── App.tsx              # routes
 │           ├── main.tsx             # React, TanStack Query, auth and toasts start here
 │           └── index.css            # Tailwind and the app's colors and fonts
