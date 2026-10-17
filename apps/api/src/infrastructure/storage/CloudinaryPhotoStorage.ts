@@ -28,7 +28,15 @@ export function parseCloudinaryUrl(value: string): CloudinaryConfig {
   const apiKey = decodeURIComponent(url.username);
   const apiSecret = decodeURIComponent(url.password);
   const cloudName = url.hostname;
-  if (url.protocol !== "cloudinary:" || !apiKey || !apiSecret || !cloudName) {
+  // "<your_api_key>" left in from Cloudinary's example counts as missing
+  const isPlaceholder = /[<>]/.test(`${apiKey}${apiSecret}${cloudName}`);
+  if (
+    url.protocol !== "cloudinary:" ||
+    !apiKey ||
+    !apiSecret ||
+    !cloudName ||
+    isPlaceholder
+  ) {
     throw new Error(
       "CLOUDINARY_URL should look like cloudinary://API_KEY:API_SECRET@CLOUD_NAME",
     );
