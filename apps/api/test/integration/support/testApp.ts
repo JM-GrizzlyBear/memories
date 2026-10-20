@@ -8,12 +8,18 @@ import { buildApp } from "../../../src/buildApp.js";
 import { createPool } from "../../../src/infrastructure/database/pool.js";
 import { BcryptPasswordHasher } from "../../../src/infrastructure/security/BcryptPasswordHasher.js";
 import { LocalPhotoStorage } from "../../../src/infrastructure/storage/LocalPhotoStorage.js";
+import { FakeAccountEmails } from "../../fixtures/accountEmails.js";
+import { FakeClock } from "../../fixtures/clock.js";
+import { APP_URL } from "../../fixtures/passwordReset.js";
 import { PASSWORD, resetDatabase, type Username } from "./seed.js";
 import { testDatabaseUrl } from "./testDatabase.js";
 
 export interface TestContext {
   pool: Pool;
   app: ReturnType<typeof buildApp>["app"];
+  // Emails the app "sent" (null when the app was built without email)
+  emails: FakeAccountEmails;
+  clock: FakeClock;
   // A logged-in browser for this person (keeps their cookie)
   as: (username: Username) => Promise<ReturnType<typeof request.agent>>;
   sql: <T extends object = Record<string, unknown>>(
@@ -24,13 +30,17 @@ export interface TestContext {
 
 // Call once at the top of a test file: the real app on the test database,
 // reset to the seed data before every test
-export function useTestApp(): TestContext {
+export function useTestApp(
+  options: { withEmail?: boolean; forgotPasswordLimit?: number } = {},
+): TestContext {
   const context = {} as TestContext;
   let uploadsDir = "";
 
   beforeAll(() => {
     uploadsDir = mkdtempSync(path.join(os.tmpdir(), "memories-test-"));
     context.pool = createPool(testDatabaseUrl());
+    context.emails = new FakeAccountEmails();
+    context.clock = new FakeClock();
     context.app = buildApp({
       pool: context.pool,
       sessionSecret: "test-secret",
@@ -38,6 +48,10 @@ export function useTestApp(): TestContext {
       passwordHasher: new BcryptPasswordHasher(4),
       isProduction: false,
       uploadsDir,
+      accountEmails: options.withEmail === false ? null : context.emails,
+      appUrl: APP_URL,
+      clock: context.clock,
+      forgotPasswordLimit: options.forgotPasswordLimit ?? 1000,
     }).app;
 
     context.as = async (username) => {
@@ -56,6 +70,8 @@ export function useTestApp(): TestContext {
   });
 
   beforeEach(async () => {
+    context.emails.clear();
+    context.clock.reset();
     await resetDatabase(context.pool);
   });
 

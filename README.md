@@ -8,7 +8,8 @@ Keep a memory (photos + why it mattered), share it with everyone, your friends, 
 ## Features
 
 - **Accounts**: register, log in, log out (sessions stored in Postgres)
-- **Settings**: change your photo, name, username, birthday and password, and who can message you
+- **Forgot password**: an emailed link (30 minutes, one use) to choose a new password; every device is logged out and a "your password was changed" email follows. Locally the emails land in **Mailpit**; the free live site says it isn't available (see [Forgot password and Mailpit](#forgot-password-and-mailpit))
+- **Settings**: change your photo, name, username, birthday and password (other devices are logged out and you get a "password changed" email), and who can message you
 - **Memories**: 1–10 photos, title, story, date (dd-mm-yyyy), place, and who can see it
 - **Journal**: your memories and the ones you're allowed to see, newest first, with "Show older memories"
 - **Memory viewer**: full-screen photo carousel with the story beside it
@@ -167,15 +168,19 @@ POSTGRES_DB=memories
 cp apps/api/.env.example apps/api/.env
 ```
 
-| Variable            | Required                | Example / meaning                                                                                                        |
-| ------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `PORT`              | no (default 4000)       | `4000`                                                                                                                   |
-| `DATABASE_URL`      | yes                     | `postgres://memories:pick_a_password@127.0.0.1:5432/memories?sslmode=disable` (same user/password/db as the root `.env`) |
-| `SESSION_SECRET`    | yes                     | a long random string: `openssl rand -hex 32`                                                                             |
-| `PHOTO_STORAGE`     | no (default `local`)    | `local` = `apps/api/uploads` folder, `cloudinary` = Cloudinary                                                           |
-| `CLOUDINARY_URL`    | only with `cloudinary`  | `cloudinary://API_KEY:API_SECRET@CLOUD_NAME`                                                                             |
-| `CLOUDINARY_FOLDER` | no (default `memories`) | folder in your Cloudinary Media Library                                                                                  |
-| `UPLOADS_DIR`       | no (default `uploads`)  | where local photos go                                                                                                    |
+| Variable            | Required                             | Example / meaning                                                                                                        |
+| ------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `PORT`              | no (default 4000)                    | `4000`                                                                                                                   |
+| `DATABASE_URL`      | yes                                  | `postgres://memories:pick_a_password@127.0.0.1:5432/memories?sslmode=disable` (same user/password/db as the root `.env`) |
+| `SESSION_SECRET`    | yes                                  | a long random string: `openssl rand -hex 32`                                                                             |
+| `PHOTO_STORAGE`     | no (default `local`)                 | `local` = `apps/api/uploads` folder, `cloudinary` = Cloudinary                                                           |
+| `CLOUDINARY_URL`    | only with `cloudinary`               | `cloudinary://API_KEY:API_SECRET@CLOUD_NAME`                                                                             |
+| `CLOUDINARY_FOLDER` | no (default `memories`)              | folder in your Cloudinary Media Library                                                                                  |
+| `UPLOADS_DIR`       | no (default `uploads`)               | where local photos go                                                                                                    |
+| `SMTP_HOST`         | no                                   | `127.0.0.1` = send account emails to Mailpit. Empty = no email: "Forgot password" says it isn't available                |
+| `SMTP_PORT`         | no (default `1025`)                  | Mailpit's SMTP port                                                                                                      |
+| `MAIL_FROM`         | no                                   | `Memories <no-reply@memories.local>`                                                                                     |
+| `APP_URL`           | no (default `http://localhost:5173`) | the website's address, used in the links inside emails                                                                   |
 
 Use `127.0.0.1` instead of `localhost` in `DATABASE_URL` on Windows if dbmate says the connection was refused on `[::1]:5432`.
 
@@ -199,8 +204,8 @@ Use `127.0.0.1` instead of `localhost` in `DATABASE_URL` on Windows if dbmate sa
 # 1. Install packages
 pnpm install
 
-# 2. Create your env files (see the section above), then start Postgres
-docker compose up -d db
+# 2. Create your env files (see the section above), then start Postgres and Mailpit
+docker compose up -d db mail
 
 # 3. Build the shared package and create the tables
 turbo run build
@@ -210,7 +215,7 @@ turbo run db:migrate
 turbo run dev
 ```
 
-Open http://localhost:5173.
+Open http://localhost:5173. Emails the app sends (forgot password) are at http://localhost:8025.
 
 `turbo run dev` shows each app in its own panel: use the ↑ / ↓ keys to switch between `@memories/web#dev` and `@memories/api#dev` (the API's errors are only in its own panel).
 
@@ -241,6 +246,7 @@ All tabs of one browser share one login. To test as two people at once (chats, f
 | `turbo run db:rollback`                                       | Undo the last migration                                          |
 | `turbo run db:new --filter=@memories/api -- create_something` | New migration file in `apps/api/db/migrations`                   |
 | `docker compose up -d db`                                     | Start local Postgres                                             |
+| `docker compose up -d mail`                                   | Start Mailpit (emails at http://localhost:8025)                  |
 | `docker compose --profile prod up --build`                    | Run the production Docker image locally on http://localhost:8080 |
 
 ### Migrations
@@ -249,6 +255,37 @@ All tabs of one browser share one login. To test as two people at once (chats, f
 - Never edit a migration that has already run on Neon. Add a new one instead.
 - In production, the Docker image runs `dbmate migrate` automatically on every start.
 - A 500 error right after pulling usually means a migration hasn't run yet: `turbo run db:migrate`.
+
+---
+
+## Forgot password and Mailpit
+
+1. **Log in** → **Forgot password?** → enter your email → **Send reset link**.
+2. The API makes a random secret link (256 bits) and stores only its SHA-256 hash.
+   - The link works for **30 minutes**, and **once**.
+   - Asking again cancels the older link.
+   - The page answers the same whether or not the email has an account, so nobody can use it to find out who's registered.
+   - Limit: 5 requests per visitor every 15 minutes.
+3. The email arrives: **Reset your password**, with a **Choose a new password** button.
+4. The link opens **Choose a new password** (`/reset-password?token=…`), with live checks: at least 8 characters, both passwords match.
+5. Saving changes the password and **logs out every device**.
+   - You land on **Log in** with "Your password was changed".
+   - A **"Your password was changed"** email follows, with a link to reset it again if it wasn't you.
+   - Changing the password in **Settings** sends the same email and logs out your other devices.
+
+### Mailpit (local email)
+
+[Mailpit](https://mailpit.axllent.org) is a fake inbox. The API sends real emails to it (SMTP on port 1025), and you read them at **http://localhost:8025**. Nothing ever reaches a real inbox.
+
+```bash
+docker compose up -d mail
+```
+
+With `SMTP_HOST=127.0.0.1` in `apps/api/.env`, the API logs `Account emails go to SMTP 127.0.0.1:1025` when it starts.
+
+### On the live site
+
+Render's free plan blocks the ports used to send email, and free email services need a paid domain to email anyone. So the live site runs **without** `SMTP_HOST`, and **Forgot password** says it isn't available on this portfolio site, with a "Why?" explanation. To turn it on later, add an email service that sends over HTTPS and a domain, then set the same variables on Render.
 
 ---
 
@@ -263,11 +300,13 @@ turbo run test:unit            # API unit tests only, no database
 turbo run test:integration     # API integration tests only
 ```
 
-| Suite           | Where                                        | What it checks                                                                                                     |
-| --------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| API unit        | `apps/api/test/unit`                         | Who can view/edit a memory, group roles, the 22-minute edit window, photo type detection, Cloudinary URLs, cursors |
-| API integration | `apps/api/test/integration`                  | Auth, memories and visibility, likes, comments, notifications, friends, album, messages, requests, groups          |
-| Website unit    | `apps/web/src/presentation/format/*.test.ts` | Date, chat text, error message and photo URL helpers                                                               |
+| Suite           | Where                                        | What it checks                                                                                                                                                                                          |
+| --------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API unit        | `apps/api/test/unit`                         | Who can view/edit a memory, group roles, the 22-minute edit window, photo type detection, Cloudinary URLs, cursors, reset links and tokens, the email templates                                         |
+| API integration | `apps/api/test/integration`                  | Auth, forgot password (link, 30 minutes, one use, logs out everywhere, emails, limit, unavailable), memories and visibility, likes, comments, notifications, friends, album, messages, requests, groups |
+| Website unit    | `apps/web/src/presentation/format/*.test.ts` | Date, chat text, error message, photo URL and new-password checklist helpers                                                                                                                            |
+
+The forgot-password tests don't need Mailpit: they use a fake email service that keeps the "sent" emails in a list, and a fake clock to make links expire.
 
 ### The test database
 
@@ -449,17 +488,21 @@ All routes start with `/api`. Everything except register, login, and health need
 
 ### Auth and account
 
-| Method       | Path                    | What it does                             |
-| ------------ | ----------------------- | ---------------------------------------- |
-| GET          | `/api/health`           | Health check                             |
-| POST         | `/api/auth/register`    | Create an account                        |
-| POST         | `/api/auth/login`       | Log in (username or email)               |
-| GET          | `/api/auth/me`          | Current user                             |
-| POST         | `/api/auth/logout`      | Log out                                  |
-| PATCH        | `/api/account/profile`  | Change name, username, birthday          |
-| PUT          | `/api/account/password` | Change password (logs out other devices) |
-| PUT / DELETE | `/api/account/photo`    | Upload / remove your profile photo       |
-| PUT          | `/api/account/privacy`  | "Who can message me?" (friends / anyone) |
+| Method       | Path                             | What it does                                                                                               |
+| ------------ | -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| GET          | `/api/health`                    | Health check                                                                                               |
+| POST         | `/api/auth/register`             | Create an account                                                                                          |
+| POST         | `/api/auth/login`                | Log in (username or email)                                                                                 |
+| GET          | `/api/auth/me`                   | Current user                                                                                               |
+| POST         | `/api/auth/logout`               | Log out                                                                                                    |
+| PATCH        | `/api/account/profile`           | Change name, username, birthday                                                                            |
+| PUT          | `/api/account/password`          | Change password (logs out other devices, sends the "password changed" email)                               |
+| GET          | `/api/auth/password-reset`       | `{ available }`: can this server send the reset email?                                                     |
+| POST         | `/api/auth/forgot-password`      | `{ email }` → 202 (same answer whether or not the account exists); 503 when email is off; 5 per 15 minutes |
+| POST         | `/api/auth/reset-password/check` | `{ token }` → `{ username, email }`, or 400 `invalid_link`                                                 |
+| POST         | `/api/auth/reset-password`       | `{ token, newPassword, confirmPassword }` → 204; logs out every device                                     |
+| PUT / DELETE | `/api/account/photo`             | Upload / remove your profile photo                                                                         |
+| PUT          | `/api/account/privacy`           | "Who can message me?" (friends / anyone)                                                                   |
 
 ### Memories, likes, comments
 

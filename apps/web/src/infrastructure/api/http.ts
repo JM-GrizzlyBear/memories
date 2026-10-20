@@ -2,16 +2,20 @@
 export class ApiError extends Error {
   readonly status: number;
   readonly fieldErrors: Record<string, string[]>;
+  // A machine-readable reason, when the API sends one (e.g. "invalid_link")
+  readonly code?: string;
 
   constructor(
     status: number,
     message: string,
     fieldErrors: Record<string, string[]> = {},
+    code?: string,
   ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.code = code;
   }
 }
 
@@ -48,6 +52,7 @@ export async function request<T>(
       response.status,
       data.error ?? "Something went wrong",
       data.errors ?? {},
+      data.code,
     );
   }
 

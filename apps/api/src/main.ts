@@ -2,6 +2,7 @@ import "dotenv/config";
 import path from "node:path";
 import { buildApp } from "./buildApp.js";
 import { createPool } from "./infrastructure/database/pool.js";
+import { SmtpAccountEmails } from "./infrastructure/email/SmtpAccountEmails.js";
 import { BcryptPasswordHasher } from "./infrastructure/security/BcryptPasswordHasher.js";
 import {
   createPhotoStorage,
@@ -36,6 +37,28 @@ if (photoStorageKind(process.env) === "cloudinary") {
     );
   }
 }
+// Account emails (forgot password). Locally: Mailpit from docker compose.
+// Without SMTP_HOST (the live site on Render's free plan, which blocks email ports)
+// "Forgot password" says it isn't available.
+const appUrl = (process.env.APP_URL ?? "http://localhost:5173").replace(
+  /\/+$/,
+  "",
+);
+const smtpHost = process.env.SMTP_HOST?.trim();
+const accountEmails = smtpHost
+  ? new SmtpAccountEmails({
+      host: smtpHost,
+      port: Number(process.env.SMTP_PORT ?? 1025),
+      from: process.env.MAIL_FROM ?? "Memories <no-reply@memories.local>",
+      appUrl,
+    })
+  : null;
+console.log(
+  accountEmails
+    ? `Account emails go to SMTP ${smtpHost}:${process.env.SMTP_PORT ?? 1025}`
+    : "Account emails are off (no SMTP_HOST): forgot password is unavailable",
+);
+
 const { app, sessionMiddleware, realtime, chatInbox } = buildApp({
   pool,
   sessionSecret,
@@ -44,6 +67,8 @@ const { app, sessionMiddleware, realtime, chatInbox } = buildApp({
   isProduction,
   uploadsDir,
   webDistDir,
+  accountEmails,
+  appUrl,
 });
 
 const server = app.listen(port, () => {
