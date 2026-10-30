@@ -55,7 +55,7 @@ A pending request doesn't count as a friendship.
 | Shared (`packages/shared`) | zod schemas and limits used by both the frontend and the backend                                     |
 | Database migrations        | dbmate (plain SQL files)                                                                             |
 | Photos                     | Local folder in development, Cloudinary in production                                                |
-| Hosting                    | Render (app, Docker), Neon (Postgres), Cloudinary (photos)                                           |
+| Hosting                    | Netlify (website), Render (API, Docker), Neon (Postgres), Cloudinary (photos)                        |
 | CI/CD                      | GitHub Actions                                                                                       |
 
 Both apps follow **Clean Architecture**: `domain` → `application` → `infrastructure` → `presentation`.
@@ -70,14 +70,15 @@ Memories/
 ├── .env.example             # copy to .env → local Postgres for docker compose
 ├── .gitignore
 ├── docker-compose.yml       # local Postgres (+ "prod" profile to test the Docker image)
-├── Dockerfile               # production image used by Render
+├── Dockerfile               # production image used by Render (the API)
+├── netlify.toml             # Netlify: build settings, page fallback, headers
 ├── package.json             # root scripts and the pinned pnpm version
 ├── pnpm-workspace.yaml      # the workspace: apps/* and packages/*
 ├── pnpm-lock.yaml           # exact package versions (commit it, don't edit it)
 ├── turbo.json               # Turborepo tasks: build, dev, check-types, test, db:*
 ├── .github/workflows/
 │   ├── ci.yml               # type-check + build + tests + Docker build on every PR and on main
-│   ├── deploy.yml           # manual: deploy to Render
+│   ├── deploy.yml           # manual: deploy the API (Render) and the website (Netlify)
 │   └── clear-cache.yml      # weekly + manual: clear GitHub Actions caches
 ├── apps/
 │   ├── api/                 # Express API (also serves the built website in production)
@@ -137,15 +138,15 @@ Memories/
 
 ## Environment files: which goes where
 
-There are **two** `.env` files for local development, plus Render's settings for production.
+There are **two** `.env` files for local development, plus Render's and GitHub's settings for production.
 `.env` files are in `.gitignore`. **Never commit them**, only the `.env.example` files.
 
 | File                                            | Used by            | What goes in it                                  |
 | ----------------------------------------------- | ------------------ | ------------------------------------------------ |
 | `.env` (project root)                           | `docker compose`   | The local Postgres user, password, database name |
 | `apps/api/.env`                                 | The API and dbmate | Database URL, session secret, photo storage      |
-| Render → Environment                            | The live app       | Neon database, session secret, Cloudinary        |
-| GitHub → Settings → Environments → `production` | Deploy workflow    | `RENDER_DEPLOY_HOOK` secret                      |
+| Render → Environment                            | The live API       | Neon database, session secret, Cloudinary        |
+| GitHub → Settings → Environments → `production` | Deploy workflow    | Render and Netlify secrets, the `API_URL`        |
 
 The website (`apps/web`) needs **no** `.env`: in development, Vite forwards `/api`, `/uploads` and `/socket.io` to the API on port 4000.
 
@@ -295,13 +296,24 @@ The **Tests** job in `ci.yml` starts a `postgres:17` service container and runs 
 
 ---
 
-## Deploying (Neon + Cloudinary + Render + GitHub)
+## Deploying (Neon + Cloudinary + Render + Netlify + GitHub)
 
-The live app is one Docker container on **Render** (the API, which also serves the website), a Postgres database on **Neon**, and photos on **Cloudinary**. All three have free plans with no credit card.
+The live app has four parts, all on free plans with no credit card:
+
+| Part         | Where          | What it does                                                         |
+| ------------ | -------------- | -------------------------------------------------------------------- |
+| The website  | **Netlify**    | Sends the pages, fast, from servers close to every visitor           |
+| The API      | **Render**     | One Docker container: logins, memories, chats, live updates          |
+| The database | **Neon**       | Postgres                                                             |
+| The photos   | **Cloudinary** | Stores every uploaded photo and resizes it on the fly for thumbnails |
+
+People only ever open the Netlify address. Netlify forwards everything under `/api`, `/socket.io` and `/uploads` to the API on Render, so for the browser it's one website, and the login cookie works without extra settings.
+
+Why not the API on Netlify too? Netlify only runs short functions that stop after each request, and the live chat, typing dots and notifications need a server that stays on. That's what Render is for.
 
 Deploys are **manual**: merging to `main` does not deploy. You press **Run workflow** in GitHub Actions.
 
-Do the steps in this order: Neon and Cloudinary first (they give you the values Render needs), then Render, then GitHub.
+Do the steps in this order: Neon and Cloudinary first (they give you the values Render needs), then Render, then Netlify, then GitHub.
 
 ### 1. Neon (the database)
 
@@ -354,7 +366,7 @@ Render's free disk is wiped on every deploy, so photos must live somewhere else.
 
 The free plan has plenty of room for a portfolio app. Photos are resized on the fly for thumbnails, so pages stay fast.
 
-### 3. Render (the app)
+### 3. Render (the API)
 
 1. Go to https://render.com → **Get Started** → sign up **with GitHub**.
    - When asked, allow Render to access your GitHub (all repositories, or only `memories`).
@@ -392,37 +404,75 @@ The free plan has plenty of room for a portfolio app. Photos are resized on the 
    Photos are stored in Cloudinary
    API running on port 10000
    ```
-   Then open `https://<your-service-name>.onrender.com`.
+   Then open `https://<your-service-name>.onrender.com/api/health`: it should show `{"status":"ok"}`.
+   - Copy this address **without** `/api/health` (for example `https://memories-xxxx.onrender.com`): it becomes **`API_URL`** in step 5.
+   - The Render address still shows the app too, but share the Netlify one: that's the fast one.
 8. Get the **Deploy Hook** (used by GitHub in the next step):
    - Your service → **Settings** → scroll to **Deploy Hook** → **Copy**.
    - It looks like `https://api.render.com/deploy/srv-xxxx?key=yyyy`.
    - Keep it secret: anyone with this URL can start a deploy. If it ever leaks, click **Regenerate** on the same page.
 
-Good to know: free Render services go to sleep after about 15 minutes without visitors, and the next visit wakes them up (around a minute). Live chats and notifications (Socket.IO) work on Render without extra settings.
+Good to know: free Render services go to sleep after about 15 minutes without visitors, and the next visit wakes them up (around a minute). The website on Netlify never sleeps, but Netlify only waits 26 seconds for the API, so the very first page after a long break can show an error: wait a minute and refresh.
 
-### 4. GitHub (the Deploy button)
+### 4. Netlify (the website)
 
-The **Deploy** workflow (`.github/workflows/deploy.yml`) type-checks and builds the code, then calls Render's deploy hook. GitHub needs the hook as a secret:
+1. Go to https://netlify.com → **Sign up** → **with GitHub**.
+2. **Add new project** → **Import an existing project** → **GitHub** → pick `memories` (if it's not listed, click **Configure the Netlify app on GitHub** and give it access).
+3. Netlify reads `netlify.toml`, so the settings are already filled in:
+
+   | Field             | Value                                              |
+   | ----------------- | -------------------------------------------------- |
+   | Branch to deploy  | `main`                                             |
+   | Base directory    | leave empty                                        |
+   | Build command     | `pnpm exec turbo run build --filter=@memories/web` |
+   | Publish directory | `apps/web/dist`                                    |
+
+   Pick a **Project name** (it becomes `https://<name>.netlify.app`), then click **Deploy**.
+   This first build has no `API_URL` yet, so logging in won't work until the first GitHub deploy in step 6. That's expected.
+
+4. **Stop Netlify's own builds** (GitHub deploys instead, like Render): **Project configuration** → **Build & deploy** → **Continuous deployment** → **Build settings** → **Configure** → **Build status**: **Stopped builds** → **Save**.
+5. Get the two values GitHub needs:
+   - **Project ID**: **Project configuration** → **Project information** → **Project ID** → copy. It becomes **`NETLIFY_SITE_ID`**.
+   - **Access token**: your avatar (top right) → **User settings** → **Applications** → **Personal access tokens** → **New access token** → name it `memories-deploy`, pick an expiry → **Generate token** → copy it now (it's shown only once). It becomes **`NETLIFY_AUTH_TOKEN`**.
+   - Keep the token secret: anyone with it can change your Netlify projects. If it ever leaks, delete it on the same page and make a new one.
+
+What Netlify can't do, and how this app works around it:
+
+- **WebSockets**: Netlify doesn't forward them. On Netlify, the website is built so live updates use HTTP requests that wait for news (Socket.IO's "polling"), which Netlify forwards like any other request. Chats and notifications still arrive within a moment.
+- **26 seconds per request**: Netlify stops waiting for the API after 26 seconds. The API checks in on every live connection every 20 seconds, so these waits stay under the limit. A very large upload (10 photos of 5 MB on a slow connection) could still hit it; if that happens, send fewer photos at once.
+
+### 5. GitHub (the Deploy button)
+
+The **Deploy** workflow (`.github/workflows/deploy.yml`) type-checks and builds the code, calls Render's deploy hook, then builds the website and uploads it to Netlify. GitHub needs three secrets and one variable:
 
 1. On GitHub, open the repository → **Settings** → **Environments** (left menu) → **New environment**.
 2. Name it exactly `production` → **Configure environment**.
-3. Under **Environment secrets** → **Add environment secret**:
-   - **Name**: `RENDER_DEPLOY_HOOK`
-   - **Value**: the deploy hook URL from Render
-   - **Add secret**.
-4. Optional but recommended, so nothing broken reaches `main`:
+3. Under **Environment secrets** → **Add environment secret**, once for each:
+
+   | Name                 | Value                             |
+   | -------------------- | --------------------------------- |
+   | `RENDER_DEPLOY_HOOK` | the deploy hook URL from step 3   |
+   | `NETLIFY_AUTH_TOKEN` | the Netlify access token (step 4) |
+   | `NETLIFY_SITE_ID`    | the Netlify Project ID (step 4)   |
+
+4. Under **Environment variables** → **Add environment variable**:
+   - **Name**: `API_URL`
+   - **Value**: the Render address from step 3, like `https://memories-xxxx.onrender.com` (no `/` at the end)
+   - It's a variable, not a secret: it's not private, and the website's redirects are built from it.
+5. Optional but recommended, so nothing broken reaches `main`:
    - **Settings** → **Rules** → **Rulesets** → **New ruleset** → **New branch ruleset**
    - Name it `main`, set **Enforcement status** to **Active**, **Target branches** → **Add target** → **Include default branch**
    - Turn on **Require a pull request before merging** and **Require status checks to pass**, then add the checks **Type-check and build** and **Docker image builds** (they appear after CI has run once)
    - **Create**.
 
-### 5. Deploy
+### 6. Deploy
 
 1. Merge your pull request into `main` (CI must be green).
 2. GitHub → **Actions** → **Deploy** (left list) → **Run workflow** → branch `main` → **Run workflow**.
-3. The workflow runs **Type-check and build**, then **Deploy to Render**. Both should turn green.
-4. On Render, open **Logs** and wait for `API running on port ...`. New migrations run automatically before the app starts.
-5. Open the live site and check what you changed.
+   - **What to deploy**: `everything` (default), or only `api` or `website` when only one of them changed.
+3. The workflow runs **Type-check and build**, then **Deploy the API (Render)**, then **Deploy the website (Netlify)**. All should turn green.
+4. On Render, open **Logs** and wait for `API running on port ...`. New migrations run automatically before the API starts.
+5. Open `https://<name>.netlify.app` and check what you changed.
 
 ### Checking photos in production
 
@@ -523,7 +573,7 @@ A memory you can't see returns **404** (so nobody can tell whether it exists); a
 
 ### Live updates (Socket.IO)
 
-The website keeps one live connection (path `/socket.io`, same login cookie). The server sends `notification`, `message:new`, `message:changed`, `conversation:changed`, `conversation:read` and `typing`; the browser sends `typing`.
+The website keeps one live connection (path `/socket.io`, same login cookie): a WebSocket locally and on Render, HTTP polling on Netlify (built with `VITE_REALTIME_TRANSPORT=polling`, see `netlify.toml`). The server sends `notification`, `message:new`, `message:changed`, `conversation:changed`, `conversation:read` and `typing`; the browser sends `typing`.
 
 ---
 
@@ -541,6 +591,9 @@ The website keeps one live connection (path `/socket.io`, same login cookie). Th
 | `PHOTO_STORAGE must be "local" or "cloudinary"`             | Fix the value in `apps/api/.env` or on Render                                                                            |
 | `CLOUDINARY_URL should look like ...`                       | Copy it again from Cloudinary; no `< >` and no `CLOUDINARY_URL=` left in it                                              |
 | Photos disappear on the live site after a deploy            | `PHOTO_STORAGE` isn't `cloudinary` on Render                                                                             |
-| Deploy workflow fails at "Trigger Render deploy"            | The `RENDER_DEPLOY_HOOK` secret is missing or wrong (GitHub → Settings → Environments → `production`)                    |
+| Deploy workflow fails at "Start the Render deploy"          | The `RENDER_DEPLOY_HOOK` secret is missing or wrong (GitHub → Settings → Environments → `production`)                    |
+| Deploy workflow fails at "Check the settings"               | `API_URL`, `NETLIFY_AUTH_TOKEN` or `NETLIFY_SITE_ID` is missing (GitHub → Settings → Environments → `production`)        |
+| Netlify site: can't log in, or every page shows an error    | `API_URL` is wrong or the website was never deployed from GitHub: check it, then run Deploy with `website`               |
+| Netlify site: chats only update after a refresh             | The website was built without `VITE_REALTIME_TRANSPORT=polling`: deploy it with the Deploy workflow, not by hand         |
 | Render logs: `password authentication failed` / `ENOTFOUND` | `DATABASE_URL` on Render is wrong: copy the direct (not pooled) Neon string again                                        |
 | CI fails but it works on Windows                            | File name case: Linux sees `AuthRoutes.ts` and `authRoutes.ts` as different files (`git config core.ignorecase false`)   |

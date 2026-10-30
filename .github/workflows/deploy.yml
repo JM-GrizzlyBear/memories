@@ -1,11 +1,38 @@
 name: Deploy
 
+# Manual: GitHub → Actions → Deploy → Run workflow (branch main).
+# Merging into main does NOT deploy; this button does. It checks everything first,
+# then deploys the API (Render) and the website (Netlify).
+#
+# Needs, in GitHub → Settings → Environments → production (README → "Deploying"):
+#   Secrets
+#     RENDER_DEPLOY_HOOK   Render → the service → Settings → Deploy Hook
+#     NETLIFY_AUTH_TOKEN   Netlify → User settings → Personal access tokens
+#     NETLIFY_SITE_ID      Netlify → Project configuration → Project information → Project ID
+#   Variables
+#     API_URL              the Render address, e.g. https://memories-xxxx.onrender.com
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: What to deploy
+        type: choice
+        default: everything
+        options:
+          - everything
+          - api
+          - website
+
+# One deploy at a time; a second click waits for the first to finish
+concurrency:
+  group: deploy
+  cancel-in-progress: false
 
 jobs:
   check:
     name: Type-check and build
+    # Only main goes live
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -17,13 +44,77 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run check-types build
 
-  deploy:
-    name: Deploy to Render
-    runs-on: ubuntu-latest
+  api:
+    name: Deploy the API (Render)
     needs: check
+    if: inputs.target != 'website'
+    runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Trigger Render deploy
-        run: curl --fail -X POST "$RENDER_DEPLOY_HOOK"
+      # Render pulls the latest main, builds the Docker image, runs the migrations
+      # and switches over when the new version is healthy (watch it on Render → Events)
+      - name: Start the Render deploy
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK" ]; then
+            echo "::error::The RENDER_DEPLOY_HOOK secret is missing (README → Deploying)"
+            exit 1
+          fi
+          curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK" > /dev/null
+          echo "Render is deploying the latest main. It's live in about 3–5 minutes." >> "$GITHUB_STEP_SUMMARY"
         env:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+
+  website:
+    name: Deploy the website (Netlify)
+    needs: [check, api]
+    # Runs after the API job, or without it when only the website is deployed
+    if: >-
+      always() &&
+      needs.check.result == 'success' &&
+      (needs.api.result == 'success' || needs.api.result == 'skipped') &&
+      inputs.target != 'api'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check the settings
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::The API_URL variable is missing (README → Deploying)"
+            exit 1
+          fi
+          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "::error::The NETLIFY_AUTH_TOKEN or NETLIFY_SITE_ID secret is missing (README → Deploying)"
+            exit 1
+          fi
+        env:
+          API_URL: ${{ vars.API_URL }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      # Builds the website and writes dist/_redirects (/api, /socket.io and
+      # /uploads → the API on Render)
+      - run: pnpm turbo run build --filter=@memories/web
+        env:
+          API_URL: ${{ vars.API_URL }}
+          # Netlify can't forward WebSockets: live updates use HTTP requests instead
+          VITE_REALTIME_TRANSPORT: polling
+      # Uploads the built website with its redirects, plus the page fallback and
+      # headers from netlify.toml. Netlify's own builds are stopped, so this is the
+      # only way a new version goes live.
+      - name: Upload to Netlify
+        run: |
+          # pnpm, not npx: the project's package.json says it uses pnpm
+          # (devEngines), and npm refuses to run inside it
+          pnpm --package=netlify-cli@27.11.2 dlx netlify deploy --prod --no-build \
+            --filter @memories/web --dir "$GITHUB_WORKSPACE/apps/web/dist" \
+            --message "GitHub Actions: ${GITHUB_SHA::7}"
+          echo "The website is live on Netlify." >> "$GITHUB_STEP_SUMMARY"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

@@ -1,0 +1,42 @@
+# Netlify: hosts the website. The API stays on Render (Netlify can't run it: the
+# live chat and notifications need a server that stays on).
+#
+# Netlify forwards /api, /socket.io and /uploads to the API on Render, so the
+# browser only ever talks to one address and the login cookie just works. Those
+# rules are written into dist/_redirects at build time from API_URL
+# (apps/web/scripts/write-redirects.mjs), so the Render address lives in one place.
+#
+# Netlify builds only once, when the project is first imported. After that its
+# builds are stopped, and GitHub's Deploy workflow builds the website and uploads
+# it (README → "Deploying", step 4).
+
+[build]
+  # Netlify installs the packages itself (pnpm, the version pinned in package.json)
+  command = "pnpm exec turbo run build --filter=@memories/web"
+  publish = "apps/web/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  COREPACK_ENABLE_DOWNLOAD_PROMPT = "0"
+  # Netlify can't forward WebSockets: live updates use HTTP requests instead
+  VITE_REALTIME_TRANSPORT = "polling"
+
+# Every other address is a page of the React app (/memories/123, /chat, …).
+# The /api, /socket.io and /uploads rules in _redirects are checked before this one.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Built files have the content's fingerprint in their name: cache them for a year
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
