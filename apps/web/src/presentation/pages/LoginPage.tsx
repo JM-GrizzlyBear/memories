@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { loginSchema } from "@memories/shared";
 import { z } from "zod";
 import { ApiError } from "../../infrastructure/api/http";
@@ -36,6 +36,11 @@ function validate(form: LoginForm): FieldErrors {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Just reset their password from the email link
+  const passwordChanged =
+    (location.state as { passwordChanged?: boolean } | null)
+      ?.passwordChanged === true;
   const loginRequest = useLogin();
   const [form, setForm] = useState(initialForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -84,6 +89,15 @@ export function LoginPage() {
   return (
     <AuthLayout title="Welcome back" subtitle="Log in to see your memories.">
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+        {passwordChanged && !formError && (
+          <p
+            role="status"
+            className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
+          >
+            Your password was changed. Log in with your new password. Other
+            devices were logged out.
+          </p>
+        )}
         {formError && (
           <p
             role="alert"
@@ -112,6 +126,12 @@ export function LoginPage() {
           onChange={handleChange}
           error={fieldErrors.password}
         />
+        <Link
+          to="/forgot-password"
+          className="-mt-2 self-end text-sm font-medium text-neutral-900 underline underline-offset-4"
+        >
+          Forgot password?
+        </Link>
 
         <Button type="submit" isLoading={loginRequest.isPending}>
           Log in
