@@ -3,6 +3,7 @@ import { AppLayout } from "./presentation/components/layout/AppLayout";
 import { GuestRoute } from "./presentation/components/routing/GuestRoute";
 import { HomeRoute } from "./presentation/components/routing/HomeRoute";
 import { ProtectedRoute } from "./presentation/components/routing/ProtectedRoute";
+import { ForgotPasswordPage } from "./presentation/pages/ForgotPasswordPage";
 import { FriendsPage } from "./presentation/pages/FriendsPage";
 import { JournalPage } from "./presentation/pages/JournalPage";
 import { LoginPage } from "./presentation/pages/LoginPage";
@@ -16,6 +17,7 @@ import { NotificationUnavailablePage } from "./presentation/pages/NotificationUn
 import { NotificationsPage } from "./presentation/pages/NotificationsPage";
 import { ProfilePage } from "./presentation/pages/ProfilePage";
 import { RegisterPage } from "./presentation/pages/RegisterPage";
+import { ResetPasswordPage } from "./presentation/pages/ResetPasswordPage";
 import { SettingsPage } from "./presentation/pages/SettingsPage";
 
 export default function App() {
@@ -34,6 +36,10 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Route>
+
+        {/* Forgot password: open to everyone (the email link may be opened while logged in) */}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* "/": the landing page for visitors, the journal once logged in */}
         <Route path="/" element={<HomeRoute />}>

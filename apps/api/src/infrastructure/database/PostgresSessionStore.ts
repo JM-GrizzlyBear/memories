@@ -14,4 +14,10 @@ export class PostgresSessionStore implements SessionStore {
       [userId, keepSessionId],
     );
   }
+
+  async deleteAllSessions(userId: string): Promise<void> {
+    await this.pool.query(`DELETE FROM session WHERE sess->>'userId' = $1`, [
+      userId,
+    ]);
+  }
 }

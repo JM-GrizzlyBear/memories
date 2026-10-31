@@ -4,7 +4,7 @@ import { MemoryPrints } from "../landing/MemoryPrints";
 
 interface AuthLayoutProps {
   title: string;
-  subtitle: string;
+  subtitle?: ReactNode;
   children: ReactNode;
 }
 
@@ -40,7 +40,9 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
           <h1 className="text-3xl font-semibold tracking-tight text-neutral-900">
             {title}
           </h1>
-          <p className="mt-2 text-sm text-neutral-600">{subtitle}</p>
+          {subtitle && (
+            <p className="mt-2 text-sm text-neutral-600">{subtitle}</p>
+          )}
           <div className="mt-8">{children}</div>
         </section>
       </div>

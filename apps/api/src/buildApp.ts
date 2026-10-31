@@ -30,11 +30,14 @@ import { Notifier } from "./application/notification/Notifier.js";
 import { ReadNotifications } from "./application/notification/ReadNotifications.js";
 import { UpdateMemory } from "./application/memory/UpdateMemory.js";
 import { ChangePassword } from "./application/user/ChangePassword.js";
+import { CheckPasswordResetLink } from "./application/user/CheckPasswordResetLink.js";
 import { GetCurrentUser } from "./application/user/GetCurrentUser.js";
 import { GetProfile } from "./application/user/GetProfile.js";
 import { LoginUser } from "./application/user/LoginUser.js";
 import { RegisterUser } from "./application/user/RegisterUser.js";
 import { RemoveProfilePhoto } from "./application/user/RemoveProfilePhoto.js";
+import { RequestPasswordReset } from "./application/user/RequestPasswordReset.js";
+import { ResetPassword } from "./application/user/ResetPassword.js";
 import { SearchUsers } from "./application/user/SearchUsers.js";
 import { SetMessagePrivacy } from "./application/user/SetMessagePrivacy.js";
 import { SetProfilePhoto } from "./application/user/SetProfilePhoto.js";
@@ -46,15 +49,20 @@ import { PostgresFriendshipRepository } from "./infrastructure/database/Postgres
 import { PostgresLikeRepository } from "./infrastructure/database/PostgresLikeRepository.js";
 import { PostgresMemoryRepository } from "./infrastructure/database/PostgresMemoryRepository.js";
 import { PostgresNotificationRepository } from "./infrastructure/database/PostgresNotificationRepository.js";
+import { PostgresPasswordResetRepository } from "./infrastructure/database/PostgresPasswordResetRepository.js";
 import { PostgresSessionStore } from "./infrastructure/database/PostgresSessionStore.js";
 import { PostgresUserRepository } from "./infrastructure/database/PostgresUserRepository.js";
 import { SocketIoPublisher } from "./infrastructure/realtime/SocketIoPublisher.js";
+import { CryptoSecretTokens } from "./infrastructure/security/CryptoSecretTokens.js";
+import { SystemClock } from "./infrastructure/time/SystemClock.js";
 import { AccountController } from "./presentation/http/account/AccountController.js";
 import { AlbumController } from "./presentation/http/album/AlbumController.js";
 import { createAlbumRouter } from "./presentation/http/album/albumRoutes.js";
 import { createAccountRouter } from "./presentation/http/account/accountRoutes.js";
 import { createApp } from "./presentation/http/app.js";
 import { AuthController } from "./presentation/http/auth/AuthController.js";
+import { PasswordResetController } from "./presentation/http/auth/PasswordResetController.js";
+import { rateLimit } from "./presentation/http/middleware/rateLimit.js";
 import { createAuthRouter } from "./presentation/http/auth/authRoutes.js";
 import { ConversationController } from "./presentation/http/conversations/ConversationController.js";
 import { createConversationRouter } from "./presentation/http/conversations/conversationRoutes.js";
@@ -70,6 +78,8 @@ import { createSessionMiddleware } from "./presentation/http/session.js";
 import { UserController } from "./presentation/http/users/UserController.js";
 import { createUserRouter } from "./presentation/http/users/userRoutes.js";
 import { createSocketServer } from "./presentation/realtime/socketServer.js";
+import type { AccountEmails } from "./application/ports/AccountEmails.js";
+import type { Clock } from "./application/ports/Clock.js";
 import type { PasswordHasher } from "./application/ports/PasswordHasher.js";
 import type { PhotoStorage } from "./application/ports/PhotoStorage.js";
 
@@ -81,6 +91,15 @@ export interface BuildAppOptions {
   isProduction: boolean;
   uploadsDir: string;
   webDistDir?: string;
+  // Account emails (forgot password, password changed). null: this server can't send email,
+  // so "Forgot password" says it isn't available (the live site on free hosting).
+  accountEmails: AccountEmails | null;
+  // Where the website runs, for the links in emails (e.g. http://localhost:5173)
+  appUrl: string;
+  // The tests use a fake clock to make reset links expire
+  clock?: Clock;
+  // Forgot-password requests per visitor every 15 minutes (the tests raise it)
+  forgotPasswordLimit?: number;
 }
 
 // Builds the whole app from its parts: repositories → use cases → controllers → routes.
@@ -93,6 +112,10 @@ export function buildApp({
   isProduction,
   uploadsDir,
   webDistDir,
+  accountEmails,
+  appUrl,
+  clock = new SystemClock(),
+  forgotPasswordLimit = 5,
 }: BuildAppOptions) {
   // Infrastructure
   const userRepository = new PostgresUserRepository(pool);
@@ -124,12 +147,61 @@ export function buildApp({
     new LoginUser(userRepository, passwordHasher),
     new GetCurrentUser(userRepository),
   );
-  const authRouter = createAuthRouter(authController);
+  const passwordResetRepository = new PostgresPasswordResetRepository(pool);
+  const secretTokens = new CryptoSecretTokens();
+  const checkPasswordResetLink = new CheckPasswordResetLink(
+    userRepository,
+    passwordResetRepository,
+    secretTokens,
+    clock,
+  );
+  const passwordResetController = new PasswordResetController(
+    new RequestPasswordReset(
+      userRepository,
+      passwordResetRepository,
+      secretTokens,
+      clock,
+      accountEmails,
+      appUrl,
+    ),
+    checkPasswordResetLink,
+    new ResetPassword(
+      checkPasswordResetLink,
+      userRepository,
+      passwordResetRepository,
+      passwordHasher,
+      sessionStore,
+      clock,
+      accountEmails,
+    ),
+    accountEmails !== null,
+  );
+  const authRouter = createAuthRouter(authController, passwordResetController, {
+    // Stops someone filling a stranger's inbox, and guessing links
+    forgotPassword: rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: forgotPasswordLimit,
+      clock,
+      message: "Too many requests. Please wait 15 minutes and try again.",
+    }),
+    resetPassword: rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 20,
+      clock,
+      message: "Too many tries. Please wait 15 minutes and try again.",
+    }),
+  });
 
   // Your account (Settings page)
   const accountController = new AccountController(
     new UpdateProfile(userRepository),
-    new ChangePassword(userRepository, passwordHasher, sessionStore),
+    new ChangePassword(
+      userRepository,
+      passwordHasher,
+      sessionStore,
+      clock,
+      accountEmails,
+    ),
     new SetProfilePhoto(userRepository, photoStorage),
     new RemoveProfilePhoto(userRepository, photoStorage),
     new SetMessagePrivacy(userRepository),

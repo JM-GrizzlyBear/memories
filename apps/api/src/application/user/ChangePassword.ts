@@ -3,6 +3,8 @@ import {
   UserNotFoundError,
 } from "../../domain/user/errors.js";
 import type { UserRepository } from "../../domain/user/UserRepository.js";
+import type { AccountEmails } from "../ports/AccountEmails.js";
+import type { Clock } from "../ports/Clock.js";
 import type { PasswordHasher } from "../ports/PasswordHasher.js";
 import type { SessionStore } from "../ports/SessionStore.js";
 
@@ -18,6 +20,9 @@ export class ChangePassword {
     private readonly users: UserRepository,
     private readonly passwordHasher: PasswordHasher,
     private readonly sessions: SessionStore,
+    private readonly clock: Clock,
+    // null: this server can't send email; the change still works
+    private readonly emails: AccountEmails | null,
   ) {}
 
   async execute(input: ChangePasswordInput): Promise<void> {
@@ -36,5 +41,11 @@ export class ChangePassword {
 
     // Anyone who knew the old password and is logged in elsewhere gets logged out
     await this.sessions.deleteOtherSessions(user.id, input.sessionId);
+
+    // Same heads-up as after a reset by email, so a change they didn't make doesn't go unnoticed
+    await this.emails?.sendPasswordChanged(
+      { email: user.email, firstName: user.firstName, username: user.username },
+      this.clock.now(),
+    );
   }
 }
