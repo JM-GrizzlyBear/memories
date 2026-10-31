@@ -1,3 +1,6 @@
+import { Photo } from "./Photo";
+import { PHOTOS } from "./photos";
+
 // Two tilted photo prints and a memory card: a picture of what Memories is.
 // Decorative only (screen readers skip it); the text around it says the same.
 export function MemoryPrints({ dark = false }: { dark?: boolean }) {
@@ -13,7 +16,7 @@ export function MemoryPrints({ dark = false }: { dark?: boolean }) {
       <figure
         className={`absolute left-0 top-6 m-0 w-[62%] -rotate-4 border border-line bg-white p-2.5 pb-4 sm:top-10 sm:p-3 sm:pb-[18px] ${shadow}`}
       >
-        <div className="h-40 bg-[#cbc8c1] sm:h-55" />
+        <Photo src={PHOTOS.beach} className="h-40 bg-[#cbc8c1] sm:h-55" />
         <figcaption className="mt-2.5 font-serif text-[17px] text-ink sm:mt-3 sm:text-xl">
           Road trip to La Union
         </figcaption>
@@ -25,7 +28,7 @@ export function MemoryPrints({ dark = false }: { dark?: boolean }) {
       <figure
         className={`absolute right-0 top-0 m-0 w-[56%] rotate-3 border border-line bg-white p-2.5 pb-4 sm:p-3 sm:pb-[18px] ${shadow}`}
       >
-        <div className="h-35 bg-[#d9d7d1] sm:h-47" />
+        <Photo src={PHOTOS.garden} className="h-35 bg-[#d9d7d1] sm:h-47" />
         <figcaption className="mt-2.5 font-serif text-[17px] text-ink sm:mt-3 sm:text-xl">
           Lola's garden
         </figcaption>
