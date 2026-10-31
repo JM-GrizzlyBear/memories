@@ -104,14 +104,58 @@ jobs:
           API_URL: ${{ vars.API_URL }}
           # Netlify can't forward WebSockets: live updates use HTTP requests instead
           VITE_REALTIME_TRANSPORT: polling
+      # Before uploading: can this token see this project? Netlify itself only says
+      # "Project not found", so this explains what's wrong. It prints project
+      # names only, never the token.
+      - name: Check the Netlify token and project
+        run: |
+          node --input-type=module <<'JS'
+          const token = (process.env.NETLIFY_AUTH_TOKEN ?? "").trim();
+          const id = (process.env.NETLIFY_SITE_ID ?? "").trim();
+          const fail = (message) => {
+            console.log(`::error::${message}`);
+            process.exit(1);
+          };
+          if (/\s/.test(id)) fail("NETLIFY_SITE_ID has a space or line break inside it: copy the Project ID again");
+          if (/^https?:|netlify\.app/.test(id)) {
+            fail("NETLIFY_SITE_ID is a web address. Use the Project ID instead (Netlify → Project configuration → Project information), a code like 1a2b3c4d-5e6f-...");
+          }
+          const response = await fetch("https://api.netlify.com/api/v1/sites?per_page=100", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (response.status === 401 || response.status === 403) {
+            fail("NETLIFY_AUTH_TOKEN is wrong or expired: make a new one (Netlify → User settings → Applications → Personal access tokens)");
+          }
+          if (!response.ok) fail(`Netlify answered ${response.status}; try again in a minute`);
+          const projects = await response.json();
+          const names = projects.map((p) => p.name).join(", ") || "(none)";
+          const match = projects.find((p) => p.id === id || p.site_id === id);
+          if (match) {
+            console.log(`OK: the token can see the project "${match.name}" (${match.ssl_url || match.url})`);
+            process.exit(0);
+          }
+          const byName = projects.find((p) => p.name === id);
+          if (byName) {
+            fail(`NETLIFY_SITE_ID is the project's name ("${id}"). Use its Project ID instead (Netlify → Project configuration → Project information).`);
+          }
+          fail(`This token can't see a project with that NETLIFY_SITE_ID. Projects this token can see: ${names}. Either the ID is from another project, or the token was made on a different Netlify account than the one that owns the Memories project.`);
+          JS
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       # Uploads the built website with its redirects, plus the page fallback and
       # headers from netlify.toml. Netlify's own builds are stopped, so this is the
       # only way a new version goes live.
       - name: Upload to Netlify
         run: |
+          # Without spaces or line breaks copied along with the secrets
+          NETLIFY_AUTH_TOKEN="$(printf '%s' "$NETLIFY_AUTH_TOKEN" | tr -d '[:space:]')"
+          NETLIFY_SITE_ID="$(printf '%s' "$NETLIFY_SITE_ID" | tr -d '[:space:]')"
+          export NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID
           # pnpm, not npx: the project's package.json says it uses pnpm
           # (devEngines), and npm refuses to run inside it
           pnpm --package=netlify-cli@27.11.2 dlx netlify deploy --prod --no-build \
+            --site "$NETLIFY_SITE_ID" \
             --filter @memories/web --dir "$GITHUB_WORKSPACE/apps/web/dist" \
             --message "GitHub Actions: ${GITHUB_SHA::7}"
           echo "The website is live on Netlify." >> "$GITHUB_STEP_SUMMARY"
