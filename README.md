@@ -8,7 +8,7 @@ Keep a memory (photos + why it mattered), share it with everyone, your friends, 
 ## Features
 
 - **Accounts**: register, log in, log out (sessions stored in Postgres)
-- **Forgot password**: an emailed link (30 minutes, one use) to choose a new password; every device is logged out and a "your password was changed" email follows. Locally the emails land in **Mailpit**; the free live site says it isn't available (see [Forgot password and Mailpit](#forgot-password-and-mailpit))
+- **Forgot password**: an emailed link (30 minutes, one use) to choose a new password; every device is logged out and a "your password was changed" email follows. Locally the emails land in **Mailpit**; on the live site they're sent by **Brevo** (see [Forgot password and Mailpit](#forgot-password-and-mailpit))
 - **Settings**: change your photo, name, username, birthday and password (other devices are logged out and you get a "password changed" email), and who can message you
 - **Memories**: 1–10 photos, title, story, date (dd-mm-yyyy), place, and who can see it
 - **Journal**: your memories and the ones you're allowed to see, newest first, with "Show older memories"
@@ -56,7 +56,7 @@ A pending request doesn't count as a friendship.
 | Shared (`packages/shared`) | zod schemas and limits used by both the frontend and the backend                                     |
 | Database migrations        | dbmate (plain SQL files)                                                                             |
 | Photos                     | Local folder in development, Cloudinary in production                                                |
-| Hosting                    | Netlify (website), Render (API, Docker), Neon (Postgres), Cloudinary (photos)                        |
+| Hosting                    | Netlify (website), Render (API, Docker), Neon (Postgres), Cloudinary (photos), Brevo (emails)        |
 | CI/CD                      | GitHub Actions                                                                                       |
 
 Both apps follow **Clean Architecture**: `domain` → `application` → `infrastructure` → `presentation`.
@@ -179,9 +179,12 @@ cp apps/api/.env.example apps/api/.env
 | `CLOUDINARY_FOLDER` | no (default `memories`)              | folder in your Cloudinary Media Library                                                                                  |
 | `UPLOADS_DIR`       | no (default `uploads`)               | where local photos go                                                                                                    |
 | `SMTP_HOST`         | no                                   | `127.0.0.1` = send account emails to Mailpit. Empty = no email: "Forgot password" says it isn't available                |
-| `SMTP_PORT`         | no (default `1025`)                  | Mailpit's SMTP port                                                                                                      |
+| `SMTP_PORT`         | no (default `1025`)                  | Mailpit's SMTP port (`2525` for Brevo on Render)                                                                         |
+| `SMTP_USER`         | no                                   | empty for Mailpit; the email service's SMTP login on the live site                                                       |
+| `SMTP_PASS`         | no                                   | empty for Mailpit; the email service's SMTP key on the live site                                                         |
 | `MAIL_FROM`         | no                                   | `Memories <no-reply@memories.local>`                                                                                     |
 | `APP_URL`           | no (default `http://localhost:5173`) | the website's address, used in the links inside emails                                                                   |
+| `TRUST_PROXY`       | no (default `0`, `1` in production)  | how many proxies are in front of the API: `0` locally, `2` on Render behind Netlify                                      |
 
 Use `127.0.0.1` instead of `localhost` in `DATABASE_URL` on Windows if dbmate says the connection was refused on `[::1]:5432`.
 
@@ -286,7 +289,11 @@ With `SMTP_HOST=127.0.0.1` in `apps/api/.env`, the API logs `Account emails go t
 
 ### On the live site
 
-Render's free plan blocks the ports used to send email, and free email services need a paid domain to email anyone. So the live site runs **without** `SMTP_HOST`, and **Forgot password** says it isn't available on this portfolio site, with a "Why?" explanation. To turn it on later, add an email service that sends over HTTPS and a domain, then set the same variables on Render.
+The live API sends the same emails through [Brevo](https://www.brevo.com) (free: about 300 emails a day), set up in [Deploying → step 3](#3-brevo-the-emails).
+
+- Render's free plan blocks the usual email ports (25, 465 and 587), so the API uses Brevo's port **2525**.
+- The links inside the emails use `APP_URL`, so it must be the Netlify address.
+- Without `SMTP_HOST` on Render, **Forgot password** says it isn't available, and everything else still works.
 
 ---
 
@@ -335,9 +342,9 @@ The **Tests** job in `ci.yml` starts a `postgres:17` service container and runs 
 
 ---
 
-## Deploying (Neon + Cloudinary + Render + Netlify + GitHub)
+## Deploying (Neon + Cloudinary + Brevo + Render + Netlify + GitHub)
 
-The live app has four parts, all on free plans with no credit card:
+The live app has five parts, all on free plans:
 
 | Part         | Where          | What it does                                                         |
 | ------------ | -------------- | -------------------------------------------------------------------- |
@@ -345,6 +352,7 @@ The live app has four parts, all on free plans with no credit card:
 | The API      | **Render**     | One Docker container: logins, memories, chats, live updates          |
 | The database | **Neon**       | Postgres                                                             |
 | The photos   | **Cloudinary** | Stores every uploaded photo and resizes it on the fly for thumbnails |
+| The emails   | **Brevo**      | Sends the forgot-password and password-changed emails                |
 
 People only ever open the Netlify address. Netlify forwards everything under `/api`, `/socket.io` and `/uploads` to the API on Render, so for the browser it's one website, and the login cookie works without extra settings.
 
@@ -352,7 +360,7 @@ Why not the API on Netlify too? Netlify only runs short functions that stop afte
 
 Deploys are **manual**: merging to `main` does not deploy. You press **Run workflow** in GitHub Actions.
 
-Do the steps in this order: Neon and Cloudinary first (they give you the values Render needs), then Render, then Netlify, then GitHub.
+Do the steps in this order: Neon, Cloudinary and Brevo first (they give you the values Render needs), then Render, then Netlify, then GitHub.
 
 ### 1. Neon (the database)
 
@@ -405,7 +413,32 @@ Render's free disk is wiped on every deploy, so photos must live somewhere else.
 
 The free plan has plenty of room for a portfolio app. Photos are resized on the fly for thumbnails, so pages stay fast.
 
-### 3. Render (the API)
+### 3. Brevo (the emails)
+
+Brevo sends the forgot-password emails. Its free plan sends about 300 emails a day.
+
+1. Go to https://www.brevo.com → **Sign up free**. It may ask for your name, a company name (your own name is fine) and a phone number, and a new account can need a short review before it sends.
+2. Add the address the emails come from: **Senders, Domains & Dedicated IPs** → **Senders** → **Add a sender**:
+   - **From name**: `Memories`
+   - **From email**: an address you can open (your Gmail works)
+   - Click the link in the email Brevo sends to that address.
+3. Account menu (top right) → **SMTP & API** → **SMTP** tab:
+   - Copy the **Login** (it looks like `xxxxxx@smtp-brevo.com`). It's **not** your account email.
+   - **Generate a new SMTP key** → name it `memories` → copy it now (it's shown only once).
+   - Keep the key secret: anyone with it can send email as you. If it ever leaks, delete it on the same page and make a new one.
+4. These become the email settings on Render (step 4):
+
+   | Key         | Value                                       | Why                                                     |
+   | ----------- | ------------------------------------------- | ------------------------------------------------------- |
+   | `SMTP_HOST` | `smtp-relay.brevo.com`                      |                                                         |
+   | `SMTP_PORT` | `2525`                                      | Render's free plan blocks 25, 465 and 587               |
+   | `SMTP_USER` | the **Login** from the SMTP tab             |                                                         |
+   | `SMTP_PASS` | the SMTP key                                | Not your Brevo password                                 |
+   | `MAIL_FROM` | `Memories <the-sender-you-added@gmail.com>` | Must be the sender you verified, or Brevo won't send it |
+
+Good to know: emails from a Gmail address sent through Brevo can land in **Spam** at first. Tell people to check there. Your own domain fixes that later.
+
+### 4. Render (the API)
 
 1. Go to https://render.com → **Get Started** → sign up **with GitHub**.
    - When asked, allow Render to access your GitHub (all repositories, or only `memories`).
@@ -431,6 +464,13 @@ The free plan has plenty of room for a portfolio app. Photos are resized on the 
    | `PHOTO_STORAGE`     | `cloudinary`                                                                        |
    | `CLOUDINARY_URL`    | the `cloudinary://...` value from step 2                                            |
    | `CLOUDINARY_FOLDER` | `memories`                                                                          |
+   | `TRUST_PROXY`       | `2` (Netlify's proxy, then Render's: so the API sees each visitor's real address)   |
+   | `SMTP_HOST`         | `smtp-relay.brevo.com`                                                              |
+   | `SMTP_PORT`         | `2525`                                                                              |
+   | `SMTP_USER`         | Brevo's SMTP Login (step 3)                                                         |
+   | `SMTP_PASS`         | the Brevo SMTP key (step 3)                                                         |
+   | `MAIL_FROM`         | `Memories <the-sender-you-added@gmail.com>`                                         |
+   | `APP_URL`           | the Netlify address, added in step 5 (you don't have it yet)                        |
 
    Don't add `PORT` or `NODE_ENV`: Render provides `PORT`, and `NODE_ENV=production` is set in the `Dockerfile`.
 
@@ -441,10 +481,11 @@ The free plan has plenty of room for a portfolio app. Photos are resized on the 
    ```
    Connected to database
    Photos are stored in Cloudinary
+   Account emails go to SMTP smtp-relay.brevo.com:2525 (with a login)
    API running on port 10000
    ```
    Then open `https://<your-service-name>.onrender.com/api/health`: it should show `{"status":"ok"}`.
-   - Copy this address **without** `/api/health` (for example `https://memories-xxxx.onrender.com`): it becomes **`API_URL`** in step 5.
+   - Copy this address **without** `/api/health` (for example `https://memories-xxxx.onrender.com`): it becomes **`API_URL`** in step 6.
    - The Render address still shows the app too, but share the Netlify one: that's the fast one.
 8. Get the **Deploy Hook** (used by GitHub in the next step):
    - Your service → **Settings** → scroll to **Deploy Hook** → **Copy**.
@@ -453,7 +494,7 @@ The free plan has plenty of room for a portfolio app. Photos are resized on the 
 
 Good to know: free Render services go to sleep after about 15 minutes without visitors, and the next visit wakes them up (around a minute). The website on Netlify never sleeps, but Netlify only waits 26 seconds for the API, so the very first page after a long break can show an error: wait a minute and refresh.
 
-### 4. Netlify (the website)
+### 5. Netlify (the website)
 
 1. Go to https://netlify.com → **Sign up** → **with GitHub**.
 2. **Add new project** → **Import an existing project** → **GitHub** → pick `memories` (if it's not listed, click **Configure the Netlify app on GitHub** and give it access).
@@ -467,20 +508,21 @@ Good to know: free Render services go to sleep after about 15 minutes without vi
    | Publish directory | `apps/web/dist`                                    |
 
    Pick a **Project name** (it becomes `https://<name>.netlify.app`), then click **Deploy**.
-   This first build has no `API_URL` yet, so logging in won't work until the first GitHub deploy in step 6. That's expected.
+   This first build has no `API_URL` yet, so logging in won't work until the first GitHub deploy in step 7. That's expected.
 
 4. **Stop Netlify's own builds** (GitHub deploys instead, like Render): **Project configuration** → **Build & deploy** → **Continuous deployment** → **Build settings** → **Configure** → **Build status**: **Stopped builds** → **Save**.
 5. Get the two values GitHub needs:
    - **Project ID**: **Project configuration** → **Project information** → **Project ID** → copy. It becomes **`NETLIFY_SITE_ID`**.
    - **Access token**: your avatar (top right) → **User settings** → **Applications** → **Personal access tokens** → **New access token** → name it `memories-deploy`, pick an expiry → **Generate token** → copy it now (it's shown only once). It becomes **`NETLIFY_AUTH_TOKEN`**.
    - Keep the token secret: anyone with it can change your Netlify projects. If it ever leaks, delete it on the same page and make a new one.
+6. Back on **Render** → your service → **Environment** → **Add Environment Variable**: `APP_URL` = `https://<name>.netlify.app` (no `/` at the end) → **Save, rebuild, and deploy**. The links in the emails open this address.
 
 What Netlify can't do, and how this app works around it:
 
 - **WebSockets**: Netlify doesn't forward them. On Netlify, the website is built so live updates use HTTP requests that wait for news (Socket.IO's "polling"), which Netlify forwards like any other request. Chats and notifications still arrive within a moment.
 - **26 seconds per request**: Netlify stops waiting for the API after 26 seconds. The API checks in on every live connection every 20 seconds, so these waits stay under the limit. A very large upload (10 photos of 5 MB on a slow connection) could still hit it; if that happens, send fewer photos at once.
 
-### 5. GitHub (the Deploy button)
+### 6. GitHub (the Deploy button)
 
 The **Deploy** workflow (`.github/workflows/deploy.yml`) type-checks and builds the code, calls Render's deploy hook, then builds the website and uploads it to Netlify. GitHub needs three secrets and one variable:
 
@@ -490,13 +532,13 @@ The **Deploy** workflow (`.github/workflows/deploy.yml`) type-checks and builds 
 
    | Name                 | Value                             |
    | -------------------- | --------------------------------- |
-   | `RENDER_DEPLOY_HOOK` | the deploy hook URL from step 3   |
-   | `NETLIFY_AUTH_TOKEN` | the Netlify access token (step 4) |
-   | `NETLIFY_SITE_ID`    | the Netlify Project ID (step 4)   |
+   | `RENDER_DEPLOY_HOOK` | the deploy hook URL from step 4   |
+   | `NETLIFY_AUTH_TOKEN` | the Netlify access token (step 5) |
+   | `NETLIFY_SITE_ID`    | the Netlify Project ID (step 5)   |
 
 4. Under **Environment variables** → **Add environment variable**:
    - **Name**: `API_URL`
-   - **Value**: the Render address from step 3, like `https://memories-xxxx.onrender.com` (no `/` at the end)
+   - **Value**: the Render address from step 4, like `https://memories-xxxx.onrender.com` (no `/` at the end)
    - It's a variable, not a secret: it's not private, and the website's redirects are built from it.
 5. Optional but recommended, so nothing broken reaches `main`:
    - **Settings** → **Rules** → **Rulesets** → **New ruleset** → **New branch ruleset**
@@ -504,7 +546,7 @@ The **Deploy** workflow (`.github/workflows/deploy.yml`) type-checks and builds 
    - Turn on **Require a pull request before merging** and **Require status checks to pass**, then add the checks **Type-check and build** and **Docker image builds** (they appear after CI has run once)
    - **Create**.
 
-### 6. Deploy
+### 7. Deploy
 
 1. Merge your pull request into `main` (CI must be green).
 2. GitHub → **Actions** → **Deploy** (left list) → **Run workflow** → branch `main` → **Run workflow**.
@@ -639,4 +681,9 @@ The website keeps one live connection (path `/socket.io`, same login cookie): a 
 | Netlify site: can't log in, or every page shows an error    | `API_URL` is wrong or the website was never deployed from GitHub: check it, then run Deploy with `website`               |
 | Netlify site: chats only update after a refresh             | The website was built without `VITE_REALTIME_TRANSPORT=polling`: deploy it with the Deploy workflow, not by hand         |
 | Render logs: `password authentication failed` / `ENOTFOUND` | `DATABASE_URL` on Render is wrong: copy the direct (not pooled) Neon string again                                        |
+| Live site: "Forgot password isn't available"                | `SMTP_HOST` isn't set on Render (Render → Environment), then redeploy                                                    |
+| Render logs: `Connection timeout` when sending an email     | `SMTP_PORT` is `587` or `465`, which Render's free plan blocks: use `2525`                                               |
+| Render logs: `Invalid login` / `535` from Brevo             | `SMTP_USER` must be Brevo's SMTP Login (`…@smtp-brevo.com`) and `SMTP_PASS` the SMTP key, not your Brevo password        |
+| The email never arrives                                     | Check Spam; `MAIL_FROM` must be a sender verified on Brevo (Brevo → Transactional → Logs shows what happened)            |
+| The link in the email opens `localhost`                     | `APP_URL` on Render is missing or wrong: set it to the Netlify address                                                   |
 | CI fails but it works on Windows                            | File name case: Linux sees `AuthRoutes.ts` and `authRoutes.ts` as different files (`git config core.ignorecase false`)   |

@@ -38,26 +38,48 @@ if (photoStorageKind(process.env) === "cloudinary") {
   }
 }
 // Account emails (forgot password). Locally: Mailpit from docker compose.
-// Without SMTP_HOST (the live site on Render's free plan, which blocks email ports)
-// "Forgot password" says it isn't available.
+// Live: a real email service (Brevo) with SMTP_USER and SMTP_PASS. On Render's
+// free plan, use port 2525: Render blocks 25, 465 and 587 there.
+// Without SMTP_HOST, "Forgot password" says it isn't available.
 const appUrl = (process.env.APP_URL ?? "http://localhost:5173").replace(
   /\/+$/,
   "",
 );
 const smtpHost = process.env.SMTP_HOST?.trim();
+const smtpPort = Number(process.env.SMTP_PORT ?? 1025);
+const smtpUser = process.env.SMTP_USER?.trim() || undefined;
+const smtpPass = process.env.SMTP_PASS?.trim() || undefined;
+if (Boolean(smtpUser) !== Boolean(smtpPass)) {
+  throw new Error("Set both SMTP_USER and SMTP_PASS, or neither");
+}
+if (smtpHost && isProduction && appUrl.startsWith("http://localhost")) {
+  console.warn(
+    "Warning: APP_URL is still localhost, so the links in emails won't work. Set it to the website's address.",
+  );
+}
 const accountEmails = smtpHost
   ? new SmtpAccountEmails({
       host: smtpHost,
-      port: Number(process.env.SMTP_PORT ?? 1025),
+      port: smtpPort,
+      user: smtpUser,
+      pass: smtpPass,
       from: process.env.MAIL_FROM ?? "Memories <no-reply@memories.local>",
       appUrl,
     })
   : null;
 console.log(
   accountEmails
-    ? `Account emails go to SMTP ${smtpHost}:${process.env.SMTP_PORT ?? 1025}`
+    ? `Account emails go to SMTP ${smtpHost}:${smtpPort}${smtpUser ? " (with a login)" : ""}`
     : "Account emails are off (no SMTP_HOST): forgot password is unavailable",
 );
+
+// How many proxies sit in front of the API, so it sees each visitor's real IP
+// address (the forgot-password limit counts per address). Render alone: 1.
+// Netlify, then Render: 2. Locally: 0.
+const trustProxy = Number(process.env.TRUST_PROXY ?? (isProduction ? 1 : 0));
+if (!Number.isInteger(trustProxy) || trustProxy < 0) {
+  throw new Error("TRUST_PROXY must be a whole number, like 2");
+}
 
 const { app, sessionMiddleware, realtime, chatInbox } = buildApp({
   pool,
@@ -69,6 +91,7 @@ const { app, sessionMiddleware, realtime, chatInbox } = buildApp({
   webDistDir,
   accountEmails,
   appUrl,
+  trustProxy,
 });
 
 const server = app.listen(port, () => {

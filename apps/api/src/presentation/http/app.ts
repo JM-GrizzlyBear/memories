@@ -12,7 +12,8 @@ interface AppDependencies {
   albumRouter: Router;
   conversationRouter: Router;
   sessionMiddleware: RequestHandler;
-  isProduction: boolean;
+  // How many proxies sit in front of the API (0: none, like locally)
+  trustProxy: number;
   uploadsDir: string;
   webDistDir?: string;
 }
@@ -27,14 +28,15 @@ export function createApp({
   albumRouter,
   conversationRouter,
   sessionMiddleware,
-  isProduction,
+  trustProxy,
   uploadsDir,
   webDistDir,
 }: AppDependencies) {
   const app = express();
 
-  if (isProduction) {
-    app.set("trust proxy", 1);
+  // Behind proxies, the visitor's real IP address and https come from their headers
+  if (trustProxy > 0) {
+    app.set("trust proxy", trustProxy);
   }
 
   app.use(express.json());

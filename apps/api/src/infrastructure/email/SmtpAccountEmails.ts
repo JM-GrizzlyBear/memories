@@ -9,6 +9,9 @@ import { passwordResetEmail } from "./templates/passwordResetEmail.js";
 export interface SmtpSettings {
   host: string;
   port: number;
+  // The login of a real email service (Brevo); Mailpit needs none
+  user?: string;
+  pass?: string;
   from: string;
   // Where the website runs, for links in the emails
   appUrl: string;
@@ -16,6 +19,7 @@ export interface SmtpSettings {
 
 // Sends the account emails through an SMTP server. Locally that's Mailpit,
 // which keeps every email in its inbox (http://localhost:8025) instead of delivering it.
+// On the live site it's a real email service such as Brevo, with a login.
 export class SmtpAccountEmails implements AccountEmails {
   private readonly transport: Transporter;
 
@@ -23,7 +27,13 @@ export class SmtpAccountEmails implements AccountEmails {
     this.transport = nodemailer.createTransport({
       host: settings.host,
       port: settings.port,
-      secure: false,
+      // Port 465 is encrypted from the start; 587, 2525 (and Mailpit's 1025)
+      // switch to encryption (STARTTLS) when the server offers it
+      secure: settings.port === 465,
+      auth:
+        settings.user && settings.pass
+          ? { user: settings.user, pass: settings.pass }
+          : undefined,
     });
   }
 
