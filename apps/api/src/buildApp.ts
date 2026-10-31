@@ -90,7 +90,6 @@ export interface BuildAppOptions {
   passwordHasher: PasswordHasher;
   isProduction: boolean;
   uploadsDir: string;
-  webDistDir?: string;
   // Account emails (forgot password, password changed). null: this server can't send email,
   // so "Forgot password" says it isn't available (the live site on free hosting).
   accountEmails: AccountEmails | null;
@@ -114,7 +113,6 @@ export function buildApp({
   passwordHasher,
   isProduction,
   uploadsDir,
-  webDistDir,
   accountEmails,
   appUrl,
   clock = new SystemClock(),
@@ -292,8 +290,6 @@ export function buildApp({
     sessionMiddleware,
     trustProxy,
     uploadsDir,
-    webDistDir,
-    appUrl,
   });
 
   return { app, sessionMiddleware, realtime, chatInbox };

@@ -70,7 +70,7 @@ Memories/
 ├── .dockerignore            # what the Docker build leaves out (node_modules, .env, ...)
 ├── .env.example             # copy to .env → local Postgres for docker compose
 ├── .gitignore
-├── docker-compose.yml       # local Postgres (+ "prod" profile to test the Docker image)
+├── docker-compose.yml       # local Postgres (+ "prod" profile to test the API's Docker image)
 ├── Dockerfile               # production image used by Render (the API)
 ├── netlify.toml             # Netlify: build settings, page fallback, headers
 ├── package.json             # root scripts and the pinned pnpm version
@@ -82,7 +82,7 @@ Memories/
 │   ├── deploy.yml           # manual: deploy the API (Render) and the website (Netlify)
 │   └── clear-cache.yml      # weekly + manual: clear GitHub Actions caches
 ├── apps/
-│   ├── api/                 # Express API (also serves the built website in production)
+│   ├── api/                 # Express API (on Render; the website is on Netlify)
 │   │   ├── .env.example     # copy to apps/api/.env → the API's settings
 │   │   ├── db/migrations/   # SQL migrations (dbmate), run in order by their date prefix
 │   │   ├── vitest.config.ts # two test projects: unit and integration
@@ -238,20 +238,20 @@ All tabs of one browser share one login. To test as two people at once (chats, f
 
 ### Useful commands
 
-| Command                                                       | What it does                                                     |
-| ------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `turbo run dev`                                               | API + website with hot reload                                    |
-| `turbo run build`                                             | Build everything                                                 |
-| `turbo run check-types`                                       | TypeScript checks (what CI runs)                                 |
-| `turbo run test`                                              | All tests (API unit + integration, website unit)                 |
-| `turbo run test:unit`                                         | API unit tests only (no database needed)                         |
-| `turbo run test:integration`                                  | API integration tests only (needs Postgres running)              |
-| `turbo run db:migrate`                                        | Apply new migrations                                             |
-| `turbo run db:rollback`                                       | Undo the last migration                                          |
-| `turbo run db:new --filter=@memories/api -- create_something` | New migration file in `apps/api/db/migrations`                   |
-| `docker compose up -d db`                                     | Start local Postgres                                             |
-| `docker compose up -d mail`                                   | Start Mailpit (emails at http://localhost:8025)                  |
-| `docker compose --profile prod up --build`                    | Run the production Docker image locally on http://localhost:8080 |
+| Command                                                       | What it does                                                                                  |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `turbo run dev`                                               | API + website with hot reload                                                                 |
+| `turbo run build`                                             | Build everything                                                                              |
+| `turbo run check-types`                                       | TypeScript checks (what CI runs)                                                              |
+| `turbo run test`                                              | All tests (API unit + integration, website unit)                                              |
+| `turbo run test:unit`                                         | API unit tests only (no database needed)                                                      |
+| `turbo run test:integration`                                  | API integration tests only (needs Postgres running)                                           |
+| `turbo run db:migrate`                                        | Apply new migrations                                                                          |
+| `turbo run db:rollback`                                       | Undo the last migration                                                                       |
+| `turbo run db:new --filter=@memories/api -- create_something` | New migration file in `apps/api/db/migrations`                                                |
+| `docker compose up -d db`                                     | Start local Postgres                                                                          |
+| `docker compose up -d mail`                                   | Start Mailpit (emails at http://localhost:8025)                                               |
+| `docker compose --profile prod up --build`                    | Run the API's production Docker image on http://localhost:8080 (API only, e.g. `/api/health`) |
 
 ### Migrations
 
@@ -486,7 +486,7 @@ Good to know: emails from a Gmail address sent through Brevo can land in **Spam*
    ```
    Then open `https://<your-service-name>.onrender.com/api/health`: it should show `{"status":"ok"}`.
    - Copy this address **without** `/api/health` (for example `https://memories-xxxx.onrender.com`): it becomes **`API_URL`** in step 6.
-   - Once `APP_URL` is set (step 5), anyone who opens the Render address is sent to the same page on Netlify. Only `/api`, `/socket.io` and `/uploads` stay on Render, because Netlify forwards them there.
+   - Render runs the API only (the Docker image doesn't include the website), so its address shows nothing but the API: `/api/health` answers, and every other page is a 404. People use the Netlify address, which forwards `/api`, `/socket.io` and `/uploads` here.
 8. Get the **Deploy Hook** (used by GitHub in the next step):
    - Your service → **Settings** → scroll to **Deploy Hook** → **Copy**.
    - It looks like `https://api.render.com/deploy/srv-xxxx?key=yyyy`.

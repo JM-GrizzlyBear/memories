@@ -12,7 +12,6 @@ import { createSocketServer } from "./presentation/realtime/socketServer.js";
 
 const port = Number(process.env.PORT ?? 4000);
 const isProduction = process.env.NODE_ENV === "production";
-const webDistDir = process.env.WEB_DIST_DIR; // set only in the Docker image
 const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? "uploads");
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -88,7 +87,6 @@ const { app, sessionMiddleware, realtime, chatInbox } = buildApp({
   passwordHasher: new BcryptPasswordHasher(),
   isProduction,
   uploadsDir,
-  webDistDir,
   accountEmails,
   appUrl,
   trustProxy,
