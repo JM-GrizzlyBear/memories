@@ -486,7 +486,7 @@ Good to know: emails from a Gmail address sent through Brevo can land in **Spam*
    ```
    Then open `https://<your-service-name>.onrender.com/api/health`: it should show `{"status":"ok"}`.
    - Copy this address **without** `/api/health` (for example `https://memories-xxxx.onrender.com`): it becomes **`API_URL`** in step 6.
-   - The Render address still shows the app too, but share the Netlify one: that's the fast one.
+   - Once `APP_URL` is set (step 5), anyone who opens the Render address is sent to the same page on Netlify. Only `/api`, `/socket.io` and `/uploads` stay on Render, because Netlify forwards them there.
 8. Get the **Deploy Hook** (used by GitHub in the next step):
    - Your service → **Settings** → scroll to **Deploy Hook** → **Copy**.
    - It looks like `https://api.render.com/deploy/srv-xxxx?key=yyyy`.

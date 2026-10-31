@@ -16,6 +16,9 @@ interface AppDependencies {
   trustProxy: number;
   uploadsDir: string;
   webDistDir?: string;
+  // The website's address (APP_URL). When the website lives somewhere else
+  // (Netlify), page requests that reach the API are sent there instead.
+  appUrl?: string;
 }
 
 export function createApp({
@@ -31,6 +34,7 @@ export function createApp({
   trustProxy,
   uploadsDir,
   webDistDir,
+  appUrl,
 }: AppDependencies) {
   const app = express();
 
@@ -64,6 +68,22 @@ export function createApp({
   app.use("/api", apiNotFound);
 
   if (webDistDir) {
+    // The website lives at another address (Netlify): someone who opens the
+    // API's own address (Render) gets sent to the same page there.
+    // /api, /socket.io and /uploads keep working: Netlify forwards them here.
+    if (appUrl) {
+      const website = new URL(appUrl);
+      app.use((req, res, next) => {
+        const isPage =
+          (req.method === "GET" || req.method === "HEAD") &&
+          !req.path.startsWith("/api") &&
+          !req.path.startsWith("/socket.io") &&
+          !req.path.startsWith("/uploads");
+        if (!isPage || req.hostname === website.hostname) return next();
+        res.redirect(301, new URL(req.originalUrl, website).toString());
+      });
+    }
+
     app.use(express.static(webDistDir));
 
     app.use((req, res, next) => {

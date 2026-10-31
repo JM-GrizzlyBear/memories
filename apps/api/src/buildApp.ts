@@ -293,6 +293,7 @@ export function buildApp({
     trustProxy,
     uploadsDir,
     webDistDir,
+    appUrl,
   });
 
   return { app, sessionMiddleware, realtime, chatInbox };
