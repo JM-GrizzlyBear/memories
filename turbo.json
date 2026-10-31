@@ -4,7 +4,8 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "env": ["API_URL", "VITE_REALTIME_TRANSPORT"]
     },
     "check-types": {
       "dependsOn": ["^build"]

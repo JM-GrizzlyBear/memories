@@ -100,6 +100,9 @@ export interface BuildAppOptions {
   clock?: Clock;
   // Forgot-password requests per visitor every 15 minutes (the tests raise it)
   forgotPasswordLimit?: number;
+  // How many proxies sit in front of the API (Netlify, then Render: 2).
+  // Default: 1 in production (Render alone), 0 otherwise.
+  trustProxy?: number;
 }
 
 // Builds the whole app from its parts: repositories → use cases → controllers → routes.
@@ -116,6 +119,7 @@ export function buildApp({
   appUrl,
   clock = new SystemClock(),
   forgotPasswordLimit = 5,
+  trustProxy = isProduction ? 1 : 0,
 }: BuildAppOptions) {
   // Infrastructure
   const userRepository = new PostgresUserRepository(pool);
@@ -286,7 +290,7 @@ export function buildApp({
     albumRouter,
     conversationRouter,
     sessionMiddleware,
-    isProduction,
+    trustProxy,
     uploadsDir,
     webDistDir,
   });

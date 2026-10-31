@@ -25,7 +25,13 @@ export function createSocketServer(
   sessionMiddleware: RequestHandler,
   handlers: SocketHandlers,
 ) {
-  const io = new Server(httpServer, { serveClient: false });
+  const io = new Server(httpServer, {
+    serveClient: false,
+    // A check-in every 20 s (the default is 25 s). Through Netlify, live updates
+    // are HTTP requests that wait for news, and Netlify cuts a forwarded request
+    // off after 26 s: this keeps every wait well under that.
+    pingInterval: 20_000,
+  });
 
   // Reuse the login cookie: the same session that logs you into the API
   io.engine.use(sessionMiddleware);

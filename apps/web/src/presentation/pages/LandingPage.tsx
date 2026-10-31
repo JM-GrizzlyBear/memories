@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { MemoryPrints } from "../components/landing/MemoryPrints";
+import { Photo } from "../components/landing/Photo";
+import { PHOTOS } from "../components/landing/photos";
 
 const VISIBILITY = [
   {
@@ -181,8 +183,14 @@ export function LandingPage() {
                   <div className="flex flex-1 items-end rounded-l-md bg-ink p-3.5 font-serif text-lg text-paper">
                     An album
                   </div>
-                  <div className="flex flex-1 items-end rounded-r-md border border-line bg-[#f2f1ec] p-3.5 font-serif text-[34px] leading-none">
-                    2024
+                  <div className="flex flex-1 flex-col justify-between gap-2.5 rounded-r-md border border-line bg-[#f2f1ec] p-3.5">
+                    <Photo
+                      src={PHOTOS.friends}
+                      className="h-16 rounded-sm bg-[#cbc8c1]"
+                    />
+                    <span className="font-serif text-[34px] leading-none">
+                      2024
+                    </span>
                   </div>
                 </div>
                 <h3 className="mt-6 text-lg font-semibold sm:text-xl">
